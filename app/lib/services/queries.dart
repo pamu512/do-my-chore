@@ -129,7 +129,9 @@ class GoalProgressView {
   final double planWeightSum; // sum of chore weights (may exceed 100)
   final double weeklyParentSave; // accepted plan, or computed fallback
 
-  const GoalProgressView({
+  final int weeksElapsed; // whole weeks since created_at (0 at creation)
+
+  GoalProgressView({
     required this.id,
     required this.title,
     required this.targetAmount,
@@ -141,10 +143,29 @@ class GoalProgressView {
     required this.parentSaved,
     required this.planWeightSum,
     required this.weeklyParentSave,
+    this.weeksElapsed = 0,
   });
 
   double get parentSaveFraction =>
       parentSaveProgress(saved: parentSaved, cost: targetAmount);
+
+  /// What the parent must save per remaining week from today's balance.
+  /// The accepted plan's [weeklyParentSave] is frozen; this moves.
+  double get requiredWeeklyNow =>
+      requiredWeeklySave(target: targetAmount, saved: parentSaved, weeksN: weeksN);
+
+  /// Parent behind on money: the honest catch-up rate now exceeds the plan's
+  /// weekly figure (0.01 tolerance absorbs numeric rounding).
+  bool get parentBehind => requiredWeeklyNow > weeklyParentSave + 0.01;
+
+  /// Kid behind pace, driven by real elapsed weeks (not the POC knob):
+  /// linear projection of chore progress misses 100 by the target date.
+  bool get kidBehindPace => isBehindPace(
+        progressPct: choreProgressPct,
+        weeksN: weeksN,
+        weeksElapsed: weeksElapsed,
+        planWeightSum: planWeightSum,
+      );
 
   /// Behind pace = linear projection misses 100 by the target date.
   bool behindPace({required int weeksElapsed}) => isBehindPace(
@@ -166,13 +187,17 @@ extension GoalServiceQueries on GoalService {
   Future<List<GoalProgressView>> _loadGoals(dynamic client) async {
     final goals = await client
         .from('goals')
-        .select('id, title, target_amount, target_date, goal_mode, allow_makeup')
+        .select('id, title, target_amount, target_date, goal_mode, allow_makeup, created_at')
         .eq('status', 'active')
         .order('created_at');
 
     final views = <GoalProgressView>[];
     for (final g in goals) {
       final goalId = g['id'] as String;
+      final createdAt = DateTime.parse(g['created_at'] as String);
+      // Whole elapsed weeks since the goal started (for pace checks).
+      final elapsed =
+          DateTime.now().difference(createdAt).inDays ~/ 7;
 
       final chores = await client
           .from('chores')
@@ -230,6 +255,7 @@ extension GoalServiceQueries on GoalService {
               cost: (g['target_amount'] as num).toDouble(), weeksN: n);
 
       views.add(GoalProgressView(
+        weeksElapsed: elapsed,
         id: goalId,
         title: g['title'] as String,
         targetAmount: (g['target_amount'] as num).toDouble(),

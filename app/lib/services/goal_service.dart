@@ -112,6 +112,13 @@ class GoalService {
     });
   }
 
+  /// Parent ends a failing goal. Server-side guard (parent_end_goal RPC)
+  /// refuses when the kid is on pace or has already earned it - account-
+  /// ability goes both ways. Archived goals leave both homes.
+  Future<void> endGoal({required String goalId}) async {
+    await _parent.rpc('parent_end_goal', params: {'p_goal_id': goalId});
+  }
+
   /// Parent adds a one-time makeup chore while the goal allows makeup. Never
   /// automatic: the parent opts in on the goal and adds it explicitly.
   Future<void> addMakeupChore({

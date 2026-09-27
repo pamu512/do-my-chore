@@ -79,6 +79,21 @@ bool isBehindPace({
   return progressPct + 1e-6 < expectedPace;
 }
 
+/// Parent money pace: what must be saved per remaining week to still hit
+/// [target] by the deadline. Falls to zero once fully saved; oversaving
+/// clamps at zero. This is the honest catch-up rate - the plan's weekly
+/// figure never changes, this one does.
+double requiredWeeklySave({
+  required double target,
+  required double saved,
+  required int weeksN,
+}) {
+  final n = weeksN < 1 ? 1 : weeksN;
+  final remaining = target - saved;
+  if (remaining <= 0) return 0;
+  return remaining / n;
+}
+
 /// Discrete random weight for kid-proposed bonus chores (stretch S3 helper).
 /// Landing in a visible band keeps kids from lobbying for a fat percent.
 double randomBonusWeightPct(Random rng) {

@@ -33,11 +33,6 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   List<GoalProgressView> _goals = const [];
   int _pending = 0;
 
-  /// POC pace knob: weeks elapsed since the goal started. The seed creates
-  /// the goal at reset time, so the demo starts at 0 and this stays final;
-  /// a follow-up would derive it from goals.created_at.
-  final int _weeksElapsedSample = 0;
-
   @override
   void initState() {
     super.initState();
@@ -189,11 +184,6 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   }
 
   Widget _goalCard(BuildContext context, GoalProgressView g) {
-    // POC pace estimate: treat elapsed weeks as 0 until first approval data
-    // exists, else scale by weeks passed since creation is unknown; the
-    // behind-pace signal uses a simple elapsed share the parent can tune.
-    final behind = g.allowMakeup &&
-        g.choreProgressPct + 1e-6 < 100 * _weeksElapsedSample / g.weeksN;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -321,9 +311,13 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                 ),
               ],
             ),
-            if (behind) ...[
+            if (g.parentBehind) ...[
               const SizedBox(height: 4),
-              _makeupCard(g),
+              _catchUpCard(g),
+            ],
+            if (g.kidBehindPace) ...[
+              const SizedBox(height: 8),
+              _kidPaceCard(context, g),
             ],
           ],
         ),
@@ -331,7 +325,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     );
   }
 
-  Widget _makeupCard(GoalProgressView g) {
+  /// Parent side: the honest weekly rate has climbed above the plan.
+  Widget _catchUpCard(GoalProgressView g) {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
@@ -341,33 +336,141 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.schedule, size: 18, color: Dmc.marigoldDeep),
+          const Icon(Icons.trending_up, size: 18, color: Dmc.marigoldDeep),
           const SizedBox(width: 11),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Behind pace',
+            child: Text.rich(
+              TextSpan(
+                text:
+                    'Now \$${g.requiredWeeklyNow.toStringAsFixed(0)}/wk ',
+                style: TextStyle(
+                    fontFamily: Dmc.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Dmc.ink),
+                children: [
+                  TextSpan(
+                    text:
+                        'to stay on track (plan was \$${g.weeklyParentSave.toStringAsFixed(0)}/wk).',
                     style: TextStyle(
-                        fontFamily: Dmc.text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Dmc.ink)),
-                Text(
-                  'Add a one-time makeup chore to catch up?',
-                  style: TextStyle(fontSize: 12.5, color: Dmc.marigoldDeep),
-                ),
-              ],
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: Dmc.marigoldDeep),
+                  ),
+                ],
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: () => _addMakeup(g),
-            style: TextButton.styleFrom(foregroundColor: Dmc.marigoldDeep),
-            child: const Text('Add'),
           ),
         ],
       ),
     );
+  }
+
+  /// Kid side: behind pace. Both options live here - makeup chores (when the
+  /// goal allows them) or ending the goal. Ending is guarded server-side:
+  /// the RPC refuses if the kid is on pace or has already earned the goal.
+  Widget _kidPaceCard(BuildContext context, GoalProgressView g) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Dmc.claySoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8CFC7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.schedule, size: 18, color: Dmc.clayText),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Behind pace',
+                        style: TextStyle(
+                            fontFamily: Dmc.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Dmc.ink)),
+                    Text(
+                      'At this rate the goal is out of reach by the target date.',
+                      style:
+                          TextStyle(fontSize: 12.5, color: Dmc.clayText),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (g.allowMakeup)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _addMakeup(g),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                      foregroundColor: Dmc.clayText,
+                      side: const BorderSide(color: Color(0xFFE3C4BA)),
+                    ),
+                    child: const Text('Add makeup chore',
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              if (g.allowMakeup) const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _confirmEndGoal(g),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 40),
+                    foregroundColor: Dmc.clayText,
+                    side: const BorderSide(color: Color(0xFFE3C4BA)),
+                  ),
+                  child: const Text('End goal',
+                      overflow: TextOverflow.ellipsis),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmEndGoal(GoalProgressView g) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('End this goal?'),
+        content: Text(
+          'The goal will move out of both homes. This cannot be undone. '
+          'If the kid is keeping pace, the app will not allow it.',
+          style: TextStyle(fontSize: 14, height: 1.5, color: Dmc.ink2),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Dmc.clay),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('End goal')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.goalService!.endGoal(goalId: g.id);
+      await _refresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not end goal: $e')));
+      }
+    }
   }
 
   Future<void> _logSave(GoalProgressView g) async {
