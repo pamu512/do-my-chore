@@ -2,91 +2,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:do_my_chore/services/ledger_math.dart';
 
 void main() {
-  group('splitCredit', () {
-    test('overshoot fills goal then pocket', () {
-      final r = splitCredit(amount: 30, goalBalance: 90, targetAmount: 100);
-      expect(r.goalCredit, 10);
-      expect(r.pocketCredit, 20);
+  group('suggestedSavePerWeek', () {
+    test('Disneyland worked example: 3500 over 14 weeks is 250', () {
+      expect(suggestedSavePerWeek(cost: 3500, weeksN: 14), 250);
     });
 
-    test('under target sends everything to goal', () {
-      final r = splitCredit(amount: 15, goalBalance: 0, targetAmount: 100);
-      expect(r.goalCredit, 15);
-      expect(r.pocketCredit, 0);
+    test('skateboard: 180 over 6 weeks is 30', () {
+      expect(suggestedSavePerWeek(cost: 180, weeksN: 6), 30);
     });
 
-    test('exact fill leaves nothing for pocket', () {
-      final r = splitCredit(amount: 10, goalBalance: 90, targetAmount: 100);
-      expect(r.goalCredit, 10);
-      expect(r.pocketCredit, 0);
-    });
-
-    test('goal already at target sends everything to pocket', () {
-      final r = splitCredit(amount: 7, goalBalance: 100, targetAmount: 100);
-      expect(r.goalCredit, 0);
-      expect(r.pocketCredit, 7);
-    });
-
-    test('goal over target (defensive) sends everything to pocket', () {
-      final r = splitCredit(amount: 5, goalBalance: 120, targetAmount: 100);
-      expect(r.goalCredit, 0);
-      expect(r.pocketCredit, 5);
-    });
-
-    test('fractional amounts split to the cent', () {
-      final r = splitCredit(amount: 10.05, goalBalance: 99.98, targetAmount: 100);
-      expect(r.goalCredit, 0.02);
-      expect(r.pocketCredit, 10.03);
+    test('zero or negative weeks clamp to one week', () {
+      expect(suggestedSavePerWeek(cost: 100, weeksN: 0), 100);
     });
   });
 
-  group('sumLedger', () {
-    test('sums goal bank (credits + topups) vs pocket', () {
-      final entries = [
-        LedgerEntry(kind: LedgerKind.goalCredit, amount: 10, goalId: 'g1'),
-        LedgerEntry(kind: LedgerKind.parentTopup, amount: 25, goalId: 'g1'),
-        LedgerEntry(kind: LedgerKind.goalCredit, amount: 4, goalId: 'g1'),
-        LedgerEntry(kind: LedgerKind.pocketCredit, amount: 6, goalId: null),
-      ];
-      final s = sumLedger(entries);
-      expect(s.goalBank, 39);
-      expect(s.pocket, 6);
+  group('suggestedSavePerDay / Month', () {
+    test('day is week / 7', () {
+      expect(suggestedSavePerDay(cost: 3500, weeksN: 14), closeTo(250 / 7, 1e-9));
     });
 
-    test('empty ledger sums to zero', () {
-      final s = sumLedger(const []);
-      expect(s.goalBank, 0);
-      expect(s.pocket, 0);
+    test('month uses ceil(weeks / 4.345) months', () {
+      // 14 weeks -> 4 months -> 875
+      expect(suggestedSavePerMonth(cost: 3500, weeksN: 14), 875);
     });
   });
 
-  group('goalProgress', () {
-    test('fraction under target', () {
-      expect(goalProgress(goalBank: 50, targetAmount: 100), 0.5);
+  group('parentSaveProgress', () {
+    test('fraction under cost', () {
+      expect(parentSaveProgress(saved: 500, cost: 3500), closeTo(500 / 3500, 1e-9));
     });
 
-    test('caps at 1.0 past target', () {
-      expect(goalProgress(goalBank: 130, targetAmount: 100), 1.0);
+    test('caps at 1 past the cost', () {
+      expect(parentSaveProgress(saved: 4000, cost: 3500), 1);
     });
 
-    test('zero target never divides by zero', () {
-      expect(goalProgress(goalBank: 10, targetAmount: 0), 0.0);
-    });
-  });
-
-  group('weeksToGoal', () {
-    test('ceil division of remaining over weekly top-up', () {
-      expect(weeksToGoal(goalBank: 90, targetAmount: 100, weeklyTopup: 25), 1);
-      expect(weeksToGoal(goalBank: 0, targetAmount: 100, weeklyTopup: 25), 4);
-      expect(weeksToGoal(goalBank: 10, targetAmount: 100, weeklyTopup: 30), 3);
-    });
-
-    test('already funded is zero weeks', () {
-      expect(weeksToGoal(goalBank: 100, targetAmount: 100, weeklyTopup: 25), 0);
-    });
-
-    test('zero topup returns null (caller shows "top up now")', () {
-      expect(weeksToGoal(goalBank: 0, targetAmount: 100, weeklyTopup: 0), isNull);
+    test('zero cost never divides by zero', () {
+      expect(parentSaveProgress(saved: 100, cost: 0), 0);
     });
   });
 }
