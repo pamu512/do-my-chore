@@ -1,4 +1,5 @@
--- Do My Chore — demo seed (LOCAL DEMO ONLY)
+-- Do My Chore — rev 3 demo seed (LOCAL DEMO ONLY)
+-- Kid earns 100% of the goal through weighted chores; parent plans the money.
 -- Fixed UUIDs so tests and the demo video are deterministic.
 -- Credentials are documented in README as demo-only; never reuse.
 
@@ -37,22 +38,26 @@ insert into public.profiles (id, family_id, role, display_name) values
   ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000001', 'parent', 'Priya'),
   ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000001', 'kid', 'Arjun');
 
--- goal: Disneyland $500 by Dec 15
-insert into public.goals (id, family_id, title, target_amount, target_date, status) values
+-- goal: Disneyland family trip, $3500, ~14 weeks out, makeup off by default
+insert into public.goals (id, family_id, kid_id, title, target_amount, target_date, status, goal_mode, allow_makeup) values
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-000000000001',
-   'Disneyland', 500.00, date '2026-12-15', 'active');
+   '00000000-0000-0000-0000-0000000000a2',
+   'Disneyland', 3500.00, current_date + 98, 'active', 'family_trip', false);
 
--- chores: mix of visually verifiable (requires_photo) and trust-based
-insert into public.chores (id, goal_id, title, reward_amount, default_split_goal_pct, requires_photo) values
-  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b1', 'Clean the play table', 5.00, 80, true),
-  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000b1', 'Wash the dishes', 4.00, 80, true),
-  ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-0000000000b1', 'Read for 20 minutes', 3.00, 100, false),
-  ('00000000-0000-0000-0000-0000000000c4', '00000000-0000-0000-0000-0000000000b1', 'Make your bed', 2.00, 100, false),
-  ('00000000-0000-0000-0000-0000000000c5', '00000000-0000-0000-0000-0000000000b1', 'Fold the laundry', 4.00, 60, false),
-  ('00000000-0000-0000-0000-0000000000c6', '00000000-0000-0000-0000-0000000000b1', 'Take out the recycling', 3.00, 100, false);
+-- chores: spec worked example — weights sum to exactly 100%
+-- bed 40 daily, dishes 30 daily, laundry 20 weekly, itinerary 10 once
+insert into public.chores (id, goal_id, kid_id, title, cadence, weight_pct, requires_photo, is_makeup, is_bonus) values
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b1',
+   '00000000-0000-0000-0000-0000000000a2', 'Make your bed', 'daily', 40.00, true, false, false),
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000b1',
+   '00000000-0000-0000-0000-0000000000a2', 'Wash the dishes', 'daily', 30.00, true, false, false),
+  ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-0000000000b1',
+   '00000000-0000-0000-0000-0000000000a2', 'Fold the laundry', 'weekly', 20.00, true, false, false),
+  ('00000000-0000-0000-0000-0000000000c4', '00000000-0000-0000-0000-0000000000b1',
+   '00000000-0000-0000-0000-0000000000a2', 'Plan the park itinerary', 'once', 10.00, false, false, false);
 
--- accepted AI plan (feeds the parent weeks-to-goal card: $500 target, $25/week top-up)
+-- accepted AI plan: parent save cadence + kid weights (no dollar rewards)
 insert into public.ai_plans (goal_id, family_id, suggestion, accepted, source) values
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-000000000001',
-   '{"weekly_topup": 25, "weeks_estimate": 20, "why": "At $25 a week from you plus about $21 in chores, Arjun hits $500 before mid-December without either of you feeling the pinch.", "chores": []}',
+   '{"weekly_parent_save": 250, "weeks_estimate": 14, "why": "Disneyland costs about $3,500 for the trip. Putting aside $250 a week for 14 weeks covers it before you go. Meanwhile Arjun earns the trip by keeping the habits going: bed and dishes most days, laundry each week, and the park plan once. The weight list adds up to 100 percent, so a perfect streak lands exactly at 100 percent.", "chores": [{"title": "Make your bed", "cadence": "daily", "weight_pct": 40, "requires_photo": true}, {"title": "Wash the dishes", "cadence": "daily", "weight_pct": 30, "requires_photo": true}, {"title": "Fold the laundry", "cadence": "weekly", "weight_pct": 20, "requires_photo": true}, {"title": "Plan the park itinerary", "cadence": "once", "weight_pct": 10, "requires_photo": false}]}',
    true, 'deterministic');
