@@ -31,6 +31,9 @@ class GoalService {
 
   SupabaseClient get _parent => _clients.forRole(Role.parent);
 
+  /// Read access for query extensions in `queries.dart`.
+  SupabaseClient get parentClient => _parent;
+
   /// Returns the new goal id.
   Future<String> createGoal({
     required String title,
