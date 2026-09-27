@@ -38,8 +38,8 @@ void main() {
 
     // ---- Beat 1: Parent Home ----
     expect(find.textContaining('Disneyland'), findsWidgets);
-    expect(find.textContaining('/ \$500'), findsWidgets);
-    expect(find.textContaining('settle real money offline'), findsOneWidget);
+    expect(find.textContaining('\$3500'), findsWidgets);
+    expect(find.textContaining('real money settles offline'), findsOneWidget);
     await _shot(binding, 'beat-01');
 
     // ---- Beat 2: New Goal → Suggest plan ----
@@ -54,7 +54,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Suggest plan'));
     await _settle(tester, 2000);
-    expect(find.text('Why this plan'), findsOneWidget);
+    expect(find.text('WHY THIS PLAN'), findsOneWidget);
     expect(find.textContaining('Weekly top-up'), findsOneWidget);
     await _shot(binding, 'beat-02');
 
@@ -71,8 +71,8 @@ void main() {
     await _shot(binding, 'beat-04');
 
     // ---- Beat 5: Open photo chore, take photo, submit ----
-    // Prefer seeded Disneyland photo chore
-    final photoChore = find.text('Clean the play table');
+    // Seeded Disneyland photo chore (rev 3 seed)
+    final photoChore = find.text('Make your bed');
     expect(photoChore, findsOneWidget);
     await tester.tap(photoChore);
     await _settle(tester);
@@ -165,7 +165,7 @@ void main() {
     // ---- Beat 10: Honesty banners ----
     await tester.pageBack();
     await _settle(tester);
-    expect(find.textContaining('settle real money offline'), findsOneWidget);
+    expect(find.textContaining('real money settles offline'), findsOneWidget);
     expect(find.textContaining('test data only'), findsOneWidget);
     await _shot(binding, 'beat-10');
   });
