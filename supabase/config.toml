@@ -1,0 +1,9 @@
+project_id = "do-my-chore"
+
+[auth]
+site_url = "http://127.0.0.1:54321"
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = false
+enable_confirmations = false
