@@ -61,6 +61,7 @@ These are **demo-only credentials for a local instance** — never reuse them an
 - [`docs/superpowers/specs/2026-09-27-do-my-chore-design.md`](docs/superpowers/specs/2026-09-27-do-my-chore-design.md) — authoritative design (rev 2)
 - [`docs/superpowers/plans/2026-09-27-do-my-chore.md`](docs/superpowers/plans/2026-09-27-do-my-chore.md) — task-by-task implementation plan
 - [`docs/demo-video-script.md`](docs/demo-video-script.md) — 1–3 min demo shot list
+- [`docs/devpost-draft.md`](docs/devpost-draft.md) — paste-ready Devpost draft (do not Final Submit)
 
 ## Layout
 
