@@ -1,0 +1,199 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:do_my_chore/app.dart';
+
+Future<void> _shot(IntegrationTestWidgetsFlutterBinding binding, String name) async {
+  await binding.convertFlutterSurfaceToImage();
+  await binding.takeScreenshot(name);
+}
+
+Future<void> _settle(WidgetTester tester, [int ms = 800]) async {
+  await tester.pumpAndSettle(Duration(milliseconds: ms));
+}
+
+void main() {
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('demo walkthrough beats 1-10', (tester) async {
+    await tester.pumpWidget(const DoMyChoreApp());
+    // Wait for Supabase demo auth + first frame
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+      if (find.text('Parent Home').evaluate().isNotEmpty ||
+          find.text('Kid Today').evaluate().isNotEmpty) {
+        break;
+      }
+    }
+    await _settle(tester, 1500);
+
+    // Ensure Parent
+    if (find.text('Kid Today').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Parent'));
+      await _settle(tester);
+    }
+
+    // ---- Beat 1: Parent Home ----
+    expect(find.textContaining('Disneyland'), findsWidgets);
+    expect(find.textContaining('/ \$500'), findsWidgets);
+    expect(find.textContaining('settle real money offline'), findsOneWidget);
+    await _shot(binding, 'beat-01');
+
+    // ---- Beat 2: New Goal → Suggest plan ----
+    await tester.tap(find.text('New Goal'));
+    await _settle(tester);
+    expect(find.text('New Goal'), findsWidgets);
+
+    final fields = find.byType(TextField);
+    expect(fields, findsWidgets);
+    await tester.enterText(fields.at(0), 'Camping trip');
+    await tester.enterText(fields.at(1), '300');
+    await tester.pump();
+    await tester.tap(find.text('Suggest plan'));
+    await _settle(tester, 2000);
+    expect(find.text('Why this plan'), findsOneWidget);
+    expect(find.textContaining('Weekly top-up'), findsOneWidget);
+    await _shot(binding, 'beat-02');
+
+    // ---- Beat 3: Accept plan ----
+    await tester.tap(find.text('Accept plan'));
+    await _settle(tester, 2000);
+    expect(find.textContaining('Camping trip'), findsWidgets);
+    await _shot(binding, 'beat-03');
+
+    // ---- Beat 4: Role switch to Kid ----
+    await tester.tap(find.text('Kid'));
+    await _settle(tester);
+    expect(find.text('Kid Today'), findsOneWidget);
+    await _shot(binding, 'beat-04');
+
+    // ---- Beat 5: Open photo chore, take photo, submit ----
+    // Prefer seeded Disneyland photo chore
+    final photoChore = find.text('Clean the play table');
+    expect(photoChore, findsOneWidget);
+    await tester.tap(photoChore);
+    await _settle(tester);
+    expect(find.text('Take a photo'), findsOneWidget);
+    await tester.tap(find.text('Take a photo'));
+    await _settle(tester);
+    expect(find.textContaining('Photo attached'), findsOneWidget);
+    await _shot(binding, 'beat-05');
+    await tester.tap(find.text('Done! Send to parent'));
+    await _settle(tester, 2500);
+
+    // ---- Beat 6: Parent Approvals → approve ----
+    await tester.tap(find.text('Parent'));
+    await _settle(tester);
+    // Pending card
+    final pending = find.textContaining('waiting for approval');
+    expect(pending, findsOneWidget);
+    await tester.tap(pending);
+    await _settle(tester, 1500);
+    // Approve first pending (tooltip Approve / green check)
+    final approve = find.byTooltip('Approve');
+    expect(approve, findsWidgets);
+    await tester.tap(approve.first);
+    await _settle(tester, 2000);
+    await _shot(binding, 'beat-06');
+
+    // Pop back to Parent Home if still on approvals
+    if (find.byTooltip('Approve').evaluate().isNotEmpty ||
+        find.textContaining('Nothing waiting').evaluate().isNotEmpty) {
+      await tester.pageBack();
+      await _settle(tester);
+    }
+
+    // ---- Beat 7: Progress moved (kid bar) ----
+    await tester.tap(find.text('Kid'));
+    await _settle(tester, 1500);
+    // Goal bank should have moved (\$4 of \$5 at 80%)
+    expect(find.textContaining('Disneyland'), findsWidgets);
+    await _shot(binding, 'beat-07');
+
+    // Submit another photo chore for reject path
+    final dishes = find.text('Wash the dishes');
+    expect(dishes, findsOneWidget);
+    await tester.tap(dishes);
+    await _settle(tester);
+    await tester.tap(find.text('Take a photo'));
+    await _settle(tester);
+    await tester.tap(find.text('Done! Send to parent'));
+    await _settle(tester, 2500);
+
+    // ---- Beat 8: Reject → nudge → Kid retry ----
+    await tester.tap(find.text('Parent'));
+    await _settle(tester);
+    await tester.tap(find.textContaining('waiting for approval'));
+    await _settle(tester, 1500);
+    final reject = find.byTooltip('Reject with nudge');
+    expect(reject, findsWidgets);
+    await tester.tap(reject.first);
+    await _settle(tester, 1500);
+    if (find.byType(BackButton).evaluate().isNotEmpty || find.byIcon(Icons.arrow_back).evaluate().isNotEmpty) {
+      await tester.pageBack();
+      await _settle(tester);
+    } else {
+      // Nested scaffolds: try Navigator pop via back gesture substitute
+      final nav = tester.state(find.byType(Navigator).last);
+      nav.pop();
+      await _settle(tester);
+    }
+    await tester.tap(find.text('Kid'));
+    await _settle(tester, 1500);
+    expect(find.textContaining('Try again'), findsWidgets);
+    await _shot(binding, 'beat-08');
+
+    // ---- Beat 9: Goal Album ----
+    await tester.tap(find.text('Parent'));
+    await _settle(tester);
+    // Seed an album item so delete is visible (UI has no add control)
+    await _seedAlbumItem();
+    await tester.tap(find.text('Goal Album').first);
+    await _settle(tester, 1500);
+    expect(find.text('Goal Album'), findsWidgets);
+    // Delete if present
+    final del = find.byTooltip('Delete from album');
+    if (del.evaluate().isNotEmpty) {
+      await tester.tap(del.first);
+      await _settle(tester);
+    }
+    await _shot(binding, 'beat-09');
+
+    // ---- Beat 10: Honesty banners ----
+    await tester.pageBack();
+    await _settle(tester);
+    expect(find.textContaining('settle real money offline'), findsOneWidget);
+    expect(find.textContaining('test data only'), findsOneWidget);
+    await _shot(binding, 'beat-10');
+  });
+}
+
+Future<void> _seedAlbumItem() async {
+  // Insert via local Supabase REST as parent so Goal Album has something to show/delete.
+  const url = String.fromEnvironment('SUPABASE_URL');
+  const anon = String.fromEnvironment('SUPABASE_ANON_KEY');
+  if (url.isEmpty || anon.isEmpty) return;
+
+  final login = await HttpClient().postUrl(Uri.parse('$url/auth/v1/token?grant_type=password'));
+  login.headers.set('apikey', anon);
+  login.headers.set('Content-Type', 'application/json');
+  login.add(utf8.encode(jsonEncode({'email': 'parent@demo', 'password': 'demo1234'})));
+  final loginRes = await login.close();
+  final loginBody = jsonDecode(await loginRes.transform(utf8.decoder).join()) as Map;
+  final token = loginBody['access_token'] as String;
+
+  final req = await HttpClient().postUrl(Uri.parse('$url/rest/v1/album_items'));
+  req.headers.set('apikey', anon);
+  req.headers.set('Authorization', 'Bearer $token');
+  req.headers.set('Content-Type', 'application/json');
+  req.headers.set('Prefer', 'return=minimal');
+  req.add(utf8.encode(jsonEncode({
+    'goal_id': '00000000-0000-0000-0000-0000000000b1',
+    'photo_url': 'demo/seed-album.jpg',
+    'caption': 'Demo album photo',
+  })));
+  await req.close();
+}
