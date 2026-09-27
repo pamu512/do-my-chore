@@ -57,12 +57,14 @@ class PendingApproval {
 extension ChoreServiceQueries on ChoreService {
   /// Kid Today: every active chore, annotated with a nudge when its latest
   /// submission was rejected. Makeup and bonus chores surface like any other.
+  /// Chores of archived goals stay in the past - only active goals list.
   Future<List<KidChoreCard>> todayForKid() async {
     final rows = await kidClient
         .from('chores')
         .select('id, title, cadence, weight_pct, requires_photo, is_makeup, is_bonus, '
-            'chore_submissions(status, reject_nudge, created_at)')
+            'chore_submissions(status, reject_nudge, created_at), goals!inner(status)')
         .eq('archived', false)
+        .eq('goals.status', 'active')
         .order('created_at');
     return rows.map<KidChoreCard>((row) {
       final subs = (row['chore_submissions'] as List?) ?? const [];
@@ -204,8 +206,12 @@ extension GoalServiceQueries on GoalService {
           .from('parent_save_entries')
           .select('amount')
           .eq('goal_id', goalId);
-      final saved =
-          saves.fold<double>(0, (s, e) => s + (e['amount'] as num).toDouble());
+      // Postgres numerics decode as int when integral; accumulate through num
+      // (a generic fold on a dynamic receiver keeps its int seed and throws).
+      var saved = 0.0;
+      for (final e in saves) {
+        saved += (e['amount'] as num).toDouble();
+      }
 
       final plans = await client
           .from('ai_plans')

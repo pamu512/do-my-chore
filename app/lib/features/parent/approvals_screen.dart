@@ -62,25 +62,33 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        appBar: AppBar(title: const Text('Approvals')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
     if (_pending.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inbox_outlined, size: 30, color: const Color(0xFF9AA39B)),
-            const SizedBox(height: 10),
-            Text('Nothing waiting.',
-                style: Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text("You're all caught up.",
-                style: TextStyle(fontSize: 13, color: Dmc.muted)),
-          ],
+      return Scaffold(
+        appBar: AppBar(title: const Text('Approvals')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.inbox_outlined, size: 30, color: const Color(0xFF9AA39B)),
+              const SizedBox(height: 10),
+              Text('Nothing waiting.',
+                  style: Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text("You're all caught up.",
+                  style: TextStyle(fontSize: 13, color: Dmc.muted)),
+            ],
+          ),
         ),
       );
     }
-    return ListView(
+    return Scaffold(
+      appBar: AppBar(title: const Text('Approvals')),
+      body: ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
       children: _pending.map((p) {
         final photo = p.requiresPhoto;
@@ -158,6 +166,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           ),
         );
       }).toList(),
+      ),
     );
   }
 }
