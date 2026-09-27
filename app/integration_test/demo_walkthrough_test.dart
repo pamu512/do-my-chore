@@ -59,10 +59,22 @@ void main() {
     await _shot(binding, 'beat-02');
 
     // ---- Beat 3: Accept plan ----
+    // The plan card is tall; scroll the (lazy) ListView until the CTA builds.
+    // An explicit scroller: TextFields carry their own Scrollables.
+    await tester.scrollUntilVisible(
+      find.text('Accept plan'),
+      200,
+      scrollable: find.descendant(
+          of: find.byType(ListView), matching: find.byType(Scrollable)).first,
+      maxScrolls: 24,
+    );
     await tester.tap(find.text('Accept plan'));
     await _settle(tester, 2000);
     expect(find.textContaining('Camping trip'), findsWidgets);
     await _shot(binding, 'beat-03');
+    // Keep beats 4-8 deterministic on the seeded Disneyland goal: archive the
+    // goal the walkthrough just created via REST (same pattern as album seed).
+    await _archiveGoalByTitle('Camping trip');
 
     // ---- Beat 4: Role switch to Kid ----
     await tester.tap(find.text('Kid'));
@@ -92,18 +104,17 @@ void main() {
     expect(pending, findsOneWidget);
     await tester.tap(pending);
     await _settle(tester, 1500);
-    // Approve first pending (tooltip Approve / green check)
-    final approve = find.byTooltip('Approve');
+    // Approve first pending (labeled button)
+    final approve = find.text('Approve');
     expect(approve, findsWidgets);
     await tester.tap(approve.first);
     await _settle(tester, 2000);
     await _shot(binding, 'beat-06');
 
     // Pop back to Parent Home if still on approvals
-    if (find.byTooltip('Approve').evaluate().isNotEmpty ||
+    if (find.text('Approve').evaluate().isNotEmpty ||
         find.textContaining('Nothing waiting').evaluate().isNotEmpty) {
-      await tester.pageBack();
-      await _settle(tester);
+      await _popPage(tester);
     }
 
     // ---- Beat 7: Progress moved (kid bar) ----
@@ -128,7 +139,7 @@ void main() {
     await _settle(tester);
     await tester.tap(find.textContaining('waiting for approval'));
     await _settle(tester, 1500);
-    final reject = find.byTooltip('Reject with nudge');
+    final reject = find.text('Reject with nudge');
     expect(reject, findsWidgets);
     await tester.tap(reject.first);
     await _settle(tester, 1500);
@@ -163,7 +174,7 @@ void main() {
     await _shot(binding, 'beat-09');
 
     // ---- Beat 10: Honesty banners ----
-    await tester.pageBack();
+    await _popPage(tester);
     await _settle(tester);
     expect(find.textContaining('real money settles offline'), findsOneWidget);
     expect(find.textContaining('test data only'), findsOneWidget);
@@ -171,8 +182,40 @@ void main() {
   });
 }
 
+/// Pop the current page off the root navigator (pageBack's finder is
+/// platform-fragile under integration bindings).
+Future<void> _popPage(WidgetTester tester) async {
+  final nav = tester.state<NavigatorState>(find.byType(Navigator).last);
+  nav.pop();
+  await tester.pumpAndSettle(const Duration(milliseconds: 800));
+}
+
+/// Archive a goal by title via REST as parent (keeps beats 4-8 on Disneyland).
+Future<void> _archiveGoalByTitle(String title) async {
+  const url = String.fromEnvironment('SUPABASE_URL');
+  const anon = String.fromEnvironment('SUPABASE_ANON_KEY');
+  if (url.isEmpty || anon.isEmpty) return;
+
+  final login = await HttpClient()
+      .postUrl(Uri.parse('$url/auth/v1/token?grant_type=password'));
+  login.headers.set('apikey', anon);
+  login.headers.set('Content-Type', 'application/json');
+  login.add(utf8.encode(jsonEncode({'email': 'parent@demo', 'password': 'demo1234'})));
+  final loginRes = await login.close();
+  final loginBody = jsonDecode(await loginRes.transform(utf8.decoder).join()) as Map;
+  final token = loginBody['access_token'] as String;
+
+  final req = await HttpClient()
+      .openUrl('PATCH', Uri.parse('$url/rest/v1/goals?title=eq.$title'));
+  req.headers.set('apikey', anon);
+  req.headers.set('Authorization', 'Bearer $token');
+  req.headers.set('Content-Type', 'application/json');
+  req.headers.set('Prefer', 'return=minimal');
+  req.add(utf8.encode(jsonEncode({'status': 'archived'})));
+  await req.close();
+}
+
 Future<void> _seedAlbumItem() async {
-  // Insert via local Supabase REST as parent so Goal Album has something to show/delete.
   const url = String.fromEnvironment('SUPABASE_URL');
   const anon = String.fromEnvironment('SUPABASE_ANON_KEY');
   if (url.isEmpty || anon.isEmpty) return;
