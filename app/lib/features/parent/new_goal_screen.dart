@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../../services/ai_service.dart';
 import '../../services/goal_service.dart';
 
-/// Parent creates a goal, gets an AI-suggested save plan (with a plain
-/// parent-language why), edits it, and accepts — which writes the chores.
+/// Parent creates a goal (type, cost, date, makeup switch), gets an
+/// AI-suggested plan (parent weekly save + kid habit weights with a plain
+/// language why), edits it, and accepts - which writes the chores.
 class NewGoalScreen extends StatefulWidget {
   const NewGoalScreen({super.key, required this.goalService});
 
@@ -16,9 +17,12 @@ class NewGoalScreen extends StatefulWidget {
 
 class _NewGoalScreenState extends State<NewGoalScreen> {
   final _title = TextEditingController();
-  final _amount = TextEditingController(text: '500');
-  final _date = TextEditingController(text: '2026-12-15');
+  final _amount = TextEditingController(text: '3500');
+  final _date = TextEditingController(
+      text: DateTime.now().add(const Duration(days: 98)).toIso8601String().substring(0, 10));
   final _age = TextEditingController(text: '9');
+  String _mode = 'family_trip';
+  bool _allowMakeup = false;
 
   AiPlanSuggestion? _plan;
   bool _loading = false;
@@ -39,11 +43,11 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
       _error = null;
     });
     try {
-      // Edge function first; deterministic builder is the in-app fallback and
-      // also what the function itself falls back to without an API key.
+      // Deterministic builder is the in-app path and what the edge function
+      // falls back to without an API key.
       final plan = buildDeterministicPlan(
         title: _title.text.isEmpty ? 'Disneyland' : _title.text,
-        targetAmount: double.tryParse(_amount.text) ?? 500,
+        targetAmount: double.tryParse(_amount.text) ?? 3500,
         weeks: weeksUntil(DateTime.parse(_date.text)),
         kidAge: int.tryParse(_age.text) ?? 8,
       );
@@ -61,8 +65,10 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
     try {
       final goalId = await widget.goalService.createGoal(
         title: _title.text.isEmpty ? 'Disneyland' : _title.text,
-        targetAmount: double.tryParse(_amount.text) ?? 500,
+        cost: double.tryParse(_amount.text) ?? 3500,
+        goalMode: _mode,
         targetDate: DateTime.tryParse(_date.text),
+        allowMakeup: _allowMakeup,
       );
       await widget.goalService.acceptPlan(goalId: goalId, plan: plan);
       if (mounted) Navigator.pop(context);
@@ -84,13 +90,22 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
                 labelText: 'Goal (e.g. Disneyland)', border: OutlineInputBorder()),
           ),
           const SizedBox(height: 12),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'family_trip', label: Text('Family trip')),
+              ButtonSegment(value: 'kid_item', label: Text('Kid item')),
+            ],
+            selected: {_mode},
+            onSelectionChanged: (s) => setState(() => _mode = s.first),
+          ),
+          const SizedBox(height: 12),
           Row(children: [
             Expanded(
               child: TextField(
                 controller: _amount,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                    labelText: 'Cost (\$)', border: OutlineInputBorder()),
+                    labelText: 'Total cost (\$)', border: OutlineInputBorder()),
               ),
             ),
             const SizedBox(width: 12),
@@ -102,6 +117,14 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
               ),
             ),
           ]),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            title: const Text('Allow makeup chores'),
+            subtitle: const Text(
+                'If your kid falls behind pace, you can add one-time catch-up chores. Off by default.'),
+            value: _allowMakeup,
+            onChanged: (v) => setState(() => _allowMakeup = v),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _age,
@@ -118,7 +141,8 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child:
+                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ),
           if (_plan != null) ...[
             const SizedBox(height: 24),
@@ -133,16 +157,23 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
                     const SizedBox(height: 8),
                     Text(_plan!.why),
                     const Divider(height: 24),
-                    Text('Weekly top-up: \$${_plan!.weeklyTopup.toStringAsFixed(2)} (parent)'),
+                    Text(
+                        'You save: \$${_plan!.weeklyParentSave.toStringAsFixed(2)}/week until the date'),
                     const SizedBox(height: 8),
                     ..._plan!.chores.map((c) => ListTile(
                           dense: true,
-                          leading: Icon(c.requiresPhoto ? Icons.photo_camera : Icons.task_alt,
+                          leading: Icon(
+                              c.requiresPhoto ? Icons.photo_camera : Icons.task_alt,
                               size: 20),
                           title: Text(c.title),
                           subtitle: Text(
-                              '\$${c.reward.toStringAsFixed(2)}/done · ${c.splitGoalPct}% to goal'),
+                              '${_cadenceLabel(c.cadence)} · weight ${c.weightPct.toStringAsFixed(0)}%'),
                         )),
+                    const Divider(height: 24),
+                    Text(
+                        'Weights add up to ${_plan!.weightSum.toStringAsFixed(0)}%. '
+                        'Over 100% means your kid can skip a few and still make it.',
+                        style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
               ),
@@ -156,5 +187,16 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
         ],
       ),
     );
+  }
+
+  String _cadenceLabel(String cadence) {
+    switch (cadence) {
+      case 'daily':
+        return 'daily';
+      case 'weekly':
+        return 'weekly';
+      default:
+        return 'one time';
+    }
   }
 }

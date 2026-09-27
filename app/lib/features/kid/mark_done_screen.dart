@@ -3,16 +3,25 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../services/chore_progress_math.dart';
 import '../../services/chore_service.dart';
 import '../../services/queries.dart';
 
 /// Kid marks a chore done. Photo chores open the camera; submit is blocked
-/// until a photo is attached.
+/// until a photo is attached. Copy is percent-based only.
 class MarkDoneScreen extends StatefulWidget {
-  const MarkDoneScreen({super.key, required this.service, required this.chore});
+  const MarkDoneScreen({
+    super.key,
+    required this.service,
+    required this.chore,
+    this.weeksN,
+  });
 
   final ChoreService service;
   final KidChoreCard chore;
+
+  /// Weeks remaining on the goal, for the per-approval credit preview.
+  final int? weeksN;
 
   @override
   State<MarkDoneScreen> createState() => _MarkDoneScreenState();
@@ -73,6 +82,17 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
     }
   }
 
+  /// Per-approval credit preview: weight / expected instances.
+  String _creditLine() {
+    final c = widget.chore;
+    if (widget.weeksN == null) return 'Adds to your goal progress';
+    final expected =
+        expectedInstances(cadence: c.cadence, weeksN: widget.weeksN!);
+    final credit =
+        instanceCreditPct(weightPct: c.weightPct, expectedInstances: expected);
+    return 'Each check-in adds +${credit.toStringAsFixed(1)}%';
+  }
+
   @override
   Widget build(BuildContext context) {
     final chore = widget.chore;
@@ -89,8 +109,9 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
                 child: Text('Parent said: ${chore.nudge}'),
               ),
             ),
-          Text('\$${chore.reward.toStringAsFixed(2)} when approved'
-              ' · ${chore.splitGoalPct}% goes to your goal'),
+          Text(
+              '${chore.cadenceLabel} chore · worth +${chore.weightPct.toStringAsFixed(0)}% of the goal'),
+          Text(_creditLine()),
           const SizedBox(height: 16),
           if (chore.requiresPhoto) ...[
             Text('This one needs a photo so your parent can see it.'),
@@ -103,7 +124,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
             if (_photoPath != null)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
-                child: Text('Photo attached ✓'),
+                child: Text('Photo attached'),
               ),
           ] else
             const Text('No photo needed for this one.'),
@@ -112,7 +133,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
             onPressed: (_submitting || (chore.requiresPhoto && _photoPath == null))
                 ? null
                 : _submit,
-            child: Text(_submitting ? 'Sending…' : 'Done! Send to parent'),
+            child: Text(_submitting ? 'Sending...' : 'Done! Send to parent'),
           ),
         ],
       ),

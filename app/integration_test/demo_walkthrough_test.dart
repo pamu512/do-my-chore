@@ -137,7 +137,7 @@ void main() {
       await _settle(tester);
     } else {
       // Nested scaffolds: try Navigator pop via back gesture substitute
-      final nav = tester.state(find.byType(Navigator).last);
+      final nav = tester.state<NavigatorState>(find.byType(Navigator).last);
       nav.pop();
       await _settle(tester);
     }

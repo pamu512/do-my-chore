@@ -5,7 +5,9 @@ import '../../services/goal_service.dart';
 import '../../services/queries.dart';
 import 'mark_done_screen.dart';
 
-/// Kid Today: chores (with rejected-nudge retries) + goal vs pocket progress.
+/// Kid Today: chores (with rejected-nudge retries) and the goal bar in
+/// percent only. No dollars, no pocket: earning the goal is a habit streak;
+/// the money side lives on the parent's planner screens.
 class KidTodayScreen extends StatefulWidget {
   const KidTodayScreen({super.key, this.choreService, this.goalService});
 
@@ -66,14 +68,16 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
                         children: [
                           Text(g.title,
                               style: Theme.of(context).textTheme.titleMedium),
-                          Text(
-                              '\$${g.goalBank.toStringAsFixed(0)} / \$${g.targetAmount.toStringAsFixed(0)}'),
+                          Text('Goal ${g.choreProgressPct.toStringAsFixed(0)}%',
+                              style: Theme.of(context).textTheme.titleMedium),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      LinearProgressIndicator(value: g.progress, minHeight: 10),
+                      LinearProgressIndicator(
+                          value: g.choreProgressPct / 100, minHeight: 10),
                       const SizedBox(height: 8),
-                      Text('Pocket: \$${g.pocket.toStringAsFixed(2)}'),
+                      Text(
+                          'Keep the habits going. 100% earns the ${g.goalMode == 'family_trip' ? 'trip' : 'reward'}.'),
                     ],
                   ),
                 ),
@@ -84,11 +88,11 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
                   leading: Icon(c.requiresPhoto ? Icons.photo_camera : Icons.task_alt),
                   title: Text(c.title),
                   subtitle: c.nudge != null
-                      ? Text('↻ Try again — ${c.nudge}',
+                      ? Text('Try again - ${c.nudge}',
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.error))
                       : Text(
-                          '\$${c.reward.toStringAsFixed(2)} · ${c.splitGoalPct}% to goal'),
+                          '${c.cadenceLabel} · worth +${c.weightPct.toStringAsFixed(0)}%'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
                     if (widget.choreService == null) return;
