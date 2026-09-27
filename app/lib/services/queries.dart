@@ -108,6 +108,40 @@ class GoalProgressView {
 }
 
 extension GoalServiceQueries on GoalService {
+  /// Kid's goal-vs-pocket view (all reads under the kid JWT).
+  Future<List<GoalProgressView>> kidGoalSummary() async {
+    final goals = await kidClient
+        .from('goals')
+        .select('id, title, target_amount')
+        .eq('status', 'active')
+        .order('created_at');
+    final kid = kidClient;
+    final views = <GoalProgressView>[];
+    for (final g in goals) {
+      final entries = await kid
+          .from('ledger_entries')
+          .select('kind, amount')
+          .eq('goal_id', g['id']);
+      final summary = sumLedger(entries
+          .map<LedgerEntry>((e) => LedgerEntry(
+                kind: e['kind'] == 'pocket_credit'
+                    ? LedgerKind.pocketCredit
+                    : LedgerKind.goalCredit,
+                amount: (e['amount'] as num).toDouble(),
+              ))
+          .toList());
+      views.add(GoalProgressView(
+        id: g['id'] as String,
+        title: g['title'] as String,
+        targetAmount: (g['target_amount'] as num).toDouble(),
+        goalBank: summary.goalBank,
+        pocket: summary.pocket,
+        weeklyTopup: 0,
+      ));
+    }
+    return views;
+  }
+
   /// Parent home: goals with ledger-derived balances and the accepted plan's
   /// weekly top-up. Balances are always computed on read — never stored.
   Future<List<GoalProgressView>> goalsWithProgress() async {

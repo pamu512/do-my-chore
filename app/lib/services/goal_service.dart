@@ -34,6 +34,9 @@ class GoalService {
   /// Read access for query extensions in `queries.dart`.
   SupabaseClient get parentClient => _parent;
 
+  /// Kid-JWT client for query extensions in `queries.dart`.
+  SupabaseClient get kidClient => _clients.forRole(Role.kid);
+
   /// Returns the new goal id.
   Future<String> createGoal({
     required String title,
