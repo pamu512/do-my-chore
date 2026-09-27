@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/demo_auth.dart';
@@ -81,6 +83,30 @@ class ChoreService {
       'chore_id': choreId,
       'photo_url': ?photoUrl,
     });
+  }
+
+  /// Kid uploads a chore photo to the family-prefixed storage path and
+  /// submits. Photo chores without a photo are blocked (service rule).
+  Future<String> uploadAndSubmit({
+    required String choreId,
+    required String localPhotoPath,
+  }) async {
+    final me = _kid.auth.currentUser?.id;
+    final row = await _kid
+        .from('profiles')
+        .select('family_id')
+        .eq('id', me!)
+        .single();
+    final familyId = row['family_id'] as String;
+    final path = '$familyId/$choreId-${DateTime.now().millisecondsSinceEpoch}.jpg';
+    await _kid.storage.from('chore-photos').upload(path, File(localPhotoPath));
+    await submitChore(choreId: choreId, photoUrl: path);
+    return path;
+  }
+
+  /// Parent-side signed URL for a stored chore photo (private bucket).
+  Future<String> photoUrl(String storagePath) {
+    return _parent.storage.from('chore-photos').createSignedUrl(storagePath, 3600);
   }
 
   /// Parent approves: submission flips to approved and BOTH ledger entries
