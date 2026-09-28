@@ -26,6 +26,30 @@ void main() {
       expect(estimate.weeklySaveSuggestion, 25);
     });
 
+    test('missing amount uses the family_trip prior table', () {
+      final estimate = buildDeterministicCostPrior(
+        title: 'Miami Christmas',
+        goalMode: 'family_trip',
+        weeks: 12,
+      );
+      expect(estimate.low, 800);
+      expect(estimate.likely, 1200);
+      expect(estimate.high, 1800);
+      expect(estimate.provider, 'deterministic');
+      expect(estimate.weeklySaveSuggestion, 100);
+    });
+
+    test('missing amount uses the kid_item prior table', () {
+      final estimate = buildDeterministicCostPrior(
+        title: 'Skateboard',
+        goalMode: 'kid_item',
+        weeks: 8,
+      );
+      expect(estimate.likely, 80);
+      expect(estimate.low, 40);
+      expect(estimate.high, 150);
+    });
+
     test('zero or negative entered cost is rejected', () {
       expect(
         () => buildDeterministicCostEstimate(

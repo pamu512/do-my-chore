@@ -117,6 +117,34 @@ class LockPayload {
   });
 }
 
+/// Static USD priors when the parent has not entered an amount.
+/// Matches `supabase/functions/_shared/goal_estimate.ts`. Not live prices.
+const Map<String, ({double low, double likely, double high})> kCostPriors = {
+  'family_trip': (low: 800, likely: 1200, high: 1800),
+  'kid_item': (low: 40, likely: 80, high: 150),
+  'other': (low: 80, likely: 150, high: 250),
+};
+
+/// Offline bands from a goal_mode prior when amount is unknown.
+CostEstimate buildDeterministicCostPrior({
+  required String title,
+  required String goalMode,
+  required int weeks,
+}) {
+  final w = weeks < 1 ? 1 : weeks;
+  final prior = kCostPriors[goalMode] ?? kCostPriors['other']!;
+  final weekly = suggestedSavePerWeek(cost: prior.likely, weeksN: w);
+  return CostEstimate(
+    low: prior.low,
+    likely: prior.likely,
+    high: prior.high,
+    rationale:
+        '"$title" has no amount yet. This offline band is a starting point for a ${goalMode.replaceAll('_', ' ')}, not a live price. Confirm or change the likely number before you lock it. About \$${weekly.toStringAsFixed(0)} a week for $w weeks covers the likely figure.',
+    provider: 'deterministic',
+    weeklySaveSuggestion: weekly,
+  );
+}
+
 /// Offline bands around the number the parent already typed.
 CostEstimate buildDeterministicCostEstimate({
   required String title,
@@ -154,18 +182,40 @@ List<GoalDeal> dealsUnderBudget(List<GoalDeal> deals, {required double budget}) 
   return deals.take(3).toList();
 }
 
+CostEstimate localCostEstimate({
+  required String title,
+  double? enteredCost,
+  required int weeks,
+  String goalMode = 'kid_item',
+}) {
+  if (enteredCost != null && enteredCost > 0) {
+    return buildDeterministicCostEstimate(
+      title: title,
+      enteredCost: enteredCost,
+      weeks: weeks,
+    );
+  }
+  return buildDeterministicCostPrior(
+    title: title,
+    goalMode: goalMode,
+    weeks: weeks,
+  );
+}
+
 CostOrchestrateResult parseCostOrchestrateResponse(
   Map<String, dynamic> raw, {
   String fallbackTitle = 'Goal',
-  double fallbackCost = 1,
+  double? fallbackCost,
   int fallbackWeeks = 12,
+  String fallbackGoalMode = 'kid_item',
 }) {
   final estimateRaw = raw['estimate'];
   if (estimateRaw is! Map) {
-    final fallback = buildDeterministicCostEstimate(
+    final fallback = localCostEstimate(
       title: fallbackTitle,
       enteredCost: fallbackCost,
       weeks: fallbackWeeks,
+      goalMode: fallbackGoalMode,
     );
     return CostOrchestrateResult(
       estimate: fallback,

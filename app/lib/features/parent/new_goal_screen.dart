@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../core/dmc_theme.dart';
+import '../../core/family_context.dart';
 import '../../services/ai_service.dart';
+import '../../services/cost_estimate.dart';
 import '../../services/edge_ai_client.dart';
 import '../../services/goal_service.dart';
-import 'cost_deal_sheet.dart';
+import '../../services/ledger_math.dart';
 
-/// Parent creates a goal (type, cost, date, makeup switch), gets an
-/// AI-suggested plan (parent weekly save + kid habit weights with a plain
-/// language why), edits it, and accepts - which writes the chores.
+/// Parent types a goal (amount optional), gets a combined estimate + chore
+/// plan for the primary kid, can override the dollars, then Accept locks.
 class NewGoalScreen extends StatefulWidget {
-  const NewGoalScreen({super.key, required this.goalService});
+  const NewGoalScreen({
+    super.key,
+    required this.goalService,
+    this.primaryKidAge = kPrimaryKidAge,
+  });
 
   final GoalService goalService;
+  final int primaryKidAge;
 
   @override
   State<NewGoalScreen> createState() => _NewGoalScreenState();
@@ -20,24 +26,23 @@ class NewGoalScreen extends StatefulWidget {
 
 class _NewGoalScreenState extends State<NewGoalScreen> {
   final _title = TextEditingController();
-  final _amount = TextEditingController(text: '3500');
+  final _amount = TextEditingController();
   final _date = TextEditingController(
       text: DateTime.now().add(const Duration(days: 98)).toIso8601String().substring(0, 10));
-  final _age = TextEditingController(text: '9');
   String _mode = 'family_trip';
   bool _allowMakeup = false;
 
-  AiPlanSuggestion? _plan;
-  String _planSource = 'deterministic';
+  SuggestPlanResult? _result;
   bool _loading = false;
   String? _error;
+
+  int get _kidAge => widget.primaryKidAge;
 
   @override
   void dispose() {
     _title.dispose();
     _amount.dispose();
     _date.dispose();
-    _age.dispose();
     super.dispose();
   }
 
@@ -47,21 +52,23 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
       _error = null;
     });
     try {
-      // Prefer the edge function when it is deployed; the local builder is
-      // the offline / Basics path and what the function itself falls back to.
       final title = _title.text.isEmpty ? 'Disneyland' : _title.text;
-      final amount = double.tryParse(_amount.text) ?? 3500;
+      final typed = double.tryParse(_amount.text);
+      final amount = (typed != null && typed > 0) ? typed : null;
       final date = DateTime.tryParse(_date.text) ??
           DateTime.now().add(const Duration(days: 98));
       final result = await widget.goalService.suggestPlan(
         title: title,
         targetAmount: amount,
         targetDate: date,
-        kidAge: int.tryParse(_age.text) ?? 8,
+        kidAge: _kidAge,
+        goalMode: _mode,
       );
       setState(() {
-        _plan = result.plan;
-        _planSource = result.source;
+        _result = result;
+        if (_amount.text.trim().isEmpty) {
+          _amount.text = result.estimate.likely.toStringAsFixed(0);
+        }
       });
     } catch (e) {
       setState(() => _error = 'Could not build plan: $e');
@@ -70,37 +77,45 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
     }
   }
 
+  double? _lockedAmount() {
+    final typed = double.tryParse(_amount.text);
+    if (typed != null && typed > 0) return typed;
+    final likely = _result?.estimate.likely;
+    if (likely != null && likely > 0) return likely;
+    return null;
+  }
+
   Future<void> _accept() async {
-    final plan = _plan;
-    if (plan == null) return;
+    final result = _result;
+    if (result == null) return;
+    final locked = _lockedAmount();
+    if (locked == null) {
+      setState(() => _error = 'Add a cost or run Suggest first so we have a number to lock.');
+      return;
+    }
     try {
       final goalId = await widget.goalService.createGoal(
         title: _title.text.isEmpty ? 'Disneyland' : _title.text,
-        cost: double.tryParse(_amount.text) ?? 3500,
+        cost: locked,
         goalMode: _mode,
         targetDate: DateTime.tryParse(_date.text),
         allowMakeup: _allowMakeup,
       );
       await widget.goalService.acceptPlan(
         goalId: goalId,
-        plan: plan,
-        source: _planSource,
+        plan: result.plan,
+        source: result.source,
       );
-      if (!mounted) return;
-      // DEMO_WALK / Basics video: Accept still returns home. The cost sheet
-      // is the Nebius eligibility path and must not block that beat.
       if (!const bool.fromEnvironment('DEMO_WALK')) {
-        await showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          showDragHandle: true,
-          builder: (_) => CostDealSheet(
-            goalService: widget.goalService,
-            goalId: goalId,
-            title: _title.text.isEmpty ? 'Disneyland' : _title.text,
-            enteredCost: double.tryParse(_amount.text) ?? 3500,
-            goalMode: _mode,
-            targetDate: DateTime.tryParse(_date.text),
+        final date = DateTime.tryParse(_date.text);
+        final weeks = date == null ? result.weeks : weeksUntil(date);
+        await widget.goalService.lockGoalMoney(
+          goalId: goalId,
+          payload: lockPayload(
+            estimate: result.estimate,
+            lockedAmount: locked,
+            weeks: weeks,
+            deal: result.deals.isEmpty ? null : result.deals.first,
           ),
         );
       }
@@ -112,6 +127,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final plan = _result?.plan;
     return Scaffold(
       appBar: AppBar(title: const Text('New Goal')),
       body: ListView(
@@ -120,7 +136,8 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
           TextField(
             controller: _title,
             decoration: const InputDecoration(
-                labelText: 'Goal name', hintText: 'e.g. Disneyland'),
+                labelText: 'Goal',
+                hintText: 'e.g. Miami with the family for Christmas'),
           ),
           const SizedBox(height: 10),
           SegmentedButton<String>(
@@ -146,7 +163,9 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
                 controller: _amount,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                    labelText: 'Total cost (\$)', prefixText: '\$'),
+                    labelText: 'Total cost (optional)',
+                    hintText: 'leave blank to estimate',
+                    prefixText: '\$'),
               ),
             ),
             const SizedBox(width: 12),
@@ -160,6 +179,10 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
             ),
           ]),
           const SizedBox(height: 4),
+          Text(
+            'Planning chores for the primary kid (age $_kidAge).',
+            style: TextStyle(fontSize: 12.5, color: Dmc.muted),
+          ),
           SwitchListTile(
             title: const Text('Allow makeup chores'),
             subtitle: const Text(
@@ -168,12 +191,11 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
             onChanged: (v) => setState(() => _allowMakeup = v),
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _age,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Kid age', suffixText: 'years'),
+          Text(
+            kAiPrivacyOneLiner,
+            style: TextStyle(fontSize: 12.5, height: 1.45, color: Dmc.muted),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: _loading ? null : _suggest,
             icon: const Icon(Icons.auto_awesome, size: 18),
@@ -185,8 +207,10 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
               child: Text(_error!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ),
-          if (_plan != null) ...[
+          if (_result != null && plan != null) ...[
             const SizedBox(height: 24),
+            _estimateCard(_result!),
+            const SizedBox(height: 12),
             Card(
               color: Dmc.cream,
               child: Padding(
@@ -197,7 +221,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
                     Text('WHY THIS PLAN', style: Dmc.micro),
                     const SizedBox(height: 6),
                     Text(
-                      _plan!.why,
+                      plan.why,
                       style: TextStyle(
                           fontSize: 14, height: 1.55, color: Dmc.ink2),
                     ),
@@ -237,7 +261,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
                                   color: Dmc.ink),
                               children: [
                                 TextSpan(
-                                  text: ' - from you, every week',
+                                  text: ' - you fund the real cost, not kid pocket money',
                                   style: TextStyle(
                                       fontSize: 12.5, color: Dmc.muted),
                                 ),
@@ -246,7 +270,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
                           ),
                         ),
                         Text(
-                          '\$${_plan!.weeklyParentSave.toStringAsFixed(0)}/wk',
+                          '\$${plan.weeklyParentSave.toStringAsFixed(0)}/wk',
                           style: Dmc.displayStyle(
                               size: 17, weight: FontWeight.w700),
                         ),
@@ -254,10 +278,16 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
                     ),
                   ),
                   const Divider(height: 1),
-                  ..._plan!.chores.map(_planChoreRow),
+                  ...plan.chores.map(_planChoreRow),
                 ],
               ),
             ),
+            if (_result!.deals.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text('DEALS UNDER BUDGET', style: Dmc.micro),
+              const SizedBox(height: 8),
+              ..._result!.deals.map(_dealTile),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -265,8 +295,9 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Weights add up to ${_plan!.weightSum.toStringAsFixed(0)}%. '
-                    'Over 100% means your kid can skip a few and still make it.',
+                    'Weights add up to ${plan.weightSum.toStringAsFixed(0)}%. '
+                    'Over 100% means your kid can skip a few and still make it. '
+                    'Change the cost above if you want a different lock amount.',
                     style: TextStyle(fontSize: 12.5, color: Dmc.muted),
                   ),
                 ),
@@ -283,7 +314,114 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
     );
   }
 
+  Widget _estimateCard(SuggestPlanResult result) {
+    final e = result.estimate;
+    final live = e.provider != 'deterministic';
+    final badge = live ? 'Live estimate (${e.provider})' : 'Offline estimate';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('SAVE ESTIMATE', style: Dmc.micro),
+            const SizedBox(height: 4),
+            Text(
+              badge,
+              style: TextStyle(fontSize: 12.5, color: live ? Dmc.pine : Dmc.muted),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              e.rationale,
+              style: TextStyle(fontSize: 14, height: 1.5, color: Dmc.ink2),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _band('Low', e.low),
+                const SizedBox(width: 8),
+                _band('Likely', e.likely),
+                const SizedBox(width: 8),
+                _band('High', e.high),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'About \$${suggestedSavePerWeek(cost: e.likely, weeksN: result.weeks).toStringAsFixed(0)}/wk '
+              'if you lock the likely number. You can type a different total above.',
+              style: TextStyle(fontSize: 12.5, color: Dmc.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _band(String label, double amount) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Dmc.cream,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Dmc.line),
+        ),
+        child: Column(
+          children: [
+            Text(label, style: Dmc.micro),
+            const SizedBox(height: 4),
+            Text(
+              '\$${amount.toStringAsFixed(0)}',
+              style: Dmc.displayStyle(size: 18, weight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dealTile(GoalDeal deal) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Dmc.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Dmc.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              deal.title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Dmc.ink,
+              ),
+            ),
+            if (deal.price != null)
+              Text(
+                '\$${deal.price!.toStringAsFixed(0)}',
+                style: TextStyle(fontSize: 13, color: Dmc.pine),
+              ),
+            if (deal.snippet != null)
+              Text(
+                deal.snippet!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12.5, color: Dmc.muted),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _planChoreRow(ChoreSpec c) {
+    final plan = _result!.plan;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       decoration: const BoxDecoration(
@@ -292,7 +430,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
       child: Row(
         children: [
           Text(
-            '${_plan!.chores.indexOf(c) + 1}'.padLeft(2, '0'),
+            '${plan.chores.indexOf(c) + 1}'.padLeft(2, '0'),
             style: TextStyle(fontSize: 12, color: Dmc.faint),
           ),
           const SizedBox(width: 12),

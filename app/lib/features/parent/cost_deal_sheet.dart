@@ -53,7 +53,7 @@ class _CostDealSheetState extends State<CostDealSheet> {
       final result = await invokeGoalCostOrchestrate(
         widget.goalService.parentClient,
         title: widget.title,
-        targetAmount: widget.enteredCost,
+        targetAmount: widget.enteredCost > 0 ? widget.enteredCost : null,
         targetDate: widget.targetDate,
         goalMode: widget.goalMode,
       );
@@ -64,10 +64,11 @@ class _CostDealSheetState extends State<CostDealSheet> {
       });
     } catch (e) {
       if (!mounted) return;
-      final fallback = buildDeterministicCostEstimate(
+      final fallback = localCostEstimate(
         title: widget.title,
-        enteredCost: widget.enteredCost,
+        enteredCost: widget.enteredCost > 0 ? widget.enteredCost : null,
         weeks: _weeks,
+        goalMode: widget.goalMode,
       );
       setState(() {
         _result = CostOrchestrateResult(
