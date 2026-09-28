@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/dmc_theme.dart';
 import '../../services/ai_service.dart';
+import '../../services/edge_ai_client.dart';
 import '../../services/goal_service.dart';
+import 'cost_deal_sheet.dart';
 
 /// Parent creates a goal (type, cost, date, makeup switch), gets an
 /// AI-suggested plan (parent weekly save + kid habit weights with a plain
@@ -44,12 +46,16 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
       _error = null;
     });
     try {
-      // Deterministic builder is the in-app path and what the edge function
-      // falls back to without an API key.
-      final plan = buildDeterministicPlan(
-        title: _title.text.isEmpty ? 'Disneyland' : _title.text,
-        targetAmount: double.tryParse(_amount.text) ?? 3500,
-        weeks: weeksUntil(DateTime.parse(_date.text)),
+      // Prefer the edge function when it is deployed; the local builder is
+      // the offline / Basics path and what the function itself falls back to.
+      final title = _title.text.isEmpty ? 'Disneyland' : _title.text;
+      final amount = double.tryParse(_amount.text) ?? 3500;
+      final date = DateTime.tryParse(_date.text) ??
+          DateTime.now().add(const Duration(days: 98));
+      final plan = await widget.goalService.suggestPlan(
+        title: title,
+        targetAmount: amount,
+        targetDate: date,
         kidAge: int.tryParse(_age.text) ?? 8,
       );
       setState(() => _plan = plan);
@@ -72,6 +78,24 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
         allowMakeup: _allowMakeup,
       );
       await widget.goalService.acceptPlan(goalId: goalId, plan: plan);
+      if (!mounted) return;
+      // DEMO_WALK / Basics video: Accept still returns home. The cost sheet
+      // is the Nebius eligibility path and must not block that beat.
+      if (!const bool.fromEnvironment('DEMO_WALK')) {
+        await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (_) => CostDealSheet(
+            goalService: widget.goalService,
+            goalId: goalId,
+            title: _title.text.isEmpty ? 'Disneyland' : _title.text,
+            enteredCost: double.tryParse(_amount.text) ?? 3500,
+            goalMode: _mode,
+            targetDate: DateTime.tryParse(_date.text),
+          ),
+        );
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() => _error = '$e');

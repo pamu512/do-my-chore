@@ -4,6 +4,7 @@ import '../core/demo_auth.dart';
 import '../models/role.dart';
 import 'ai_service.dart';
 import 'chore_library.dart';
+import 'cost_estimate.dart';
 
 /// Pure validation: a chore may demand photo proof only if a parent can
 /// verify it by looking; weights must be positive and the plan must cover
@@ -101,6 +102,43 @@ class GoalService {
                   })
               .toList(),
         );
+  }
+
+  /// After Accept: lock the parent's chosen real-world cost + weekly save,
+  /// and store the estimate / deal JSON when present. Does not touch chores.
+  Future<void> lockGoalMoney({
+    required String goalId,
+    required LockPayload payload,
+  }) async {
+    if (payload.targetAmount <= 0) {
+      throw ArgumentError('Locked cost must be positive');
+    }
+    if (payload.weeklyParentSave < 0) {
+      throw ArgumentError('Weekly save cannot be negative');
+    }
+
+    await _parent.from('goals').update({
+      'target_amount': payload.targetAmount,
+      'cost_estimate': payload.costEstimate,
+      'deal_snapshot': payload.deal,
+    }).eq('id', goalId);
+
+    final plans = await _parent
+        .from('ai_plans')
+        .select('id, suggestion')
+        .eq('goal_id', goalId)
+        .eq('accepted', true)
+        .order('created_at', ascending: false)
+        .limit(1);
+    if (plans.isEmpty) return;
+    final suggestion =
+        Map<String, dynamic>.from(plans.first['suggestion'] as Map);
+    suggestion['weekly_parent_save'] = payload.weeklyParentSave;
+    suggestion['cost_estimate'] = payload.costEstimate;
+    if (payload.deal != null) suggestion['deal'] = payload.deal;
+    await _parent
+        .from('ai_plans')
+        .update({'suggestion': suggestion}).eq('id', plans.first['id']);
   }
 
   /// Parent logs money set aside for the goal ("I saved this week").

@@ -1,14 +1,14 @@
 // Rev 3 Suggest Plan edge function: kid habit weights (>= 100%) + parent
-// weekly save for the real cost. With OPENAI_API_KEY set, an LLM drafts the
-// plan (parent-language "why"). Without a key, the deterministic builder
-// below answers - same JSON shape.
+// weekly save for the real cost.
+//
+// Provider order (Basics must run with zero keys):
+//   1. NEBIUS_API_KEY → Token Factory + Nemotron
+//   2. OPENAI_API_KEY → gpt-4o-mini
+//   3. else deterministic builder (same JSON shape)
 
 import "https://deno.land/std@0.224.0/http/server.ts";
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { CORS } from "../_shared/cors.ts";
+import { chatCompletions, parseJsonObject } from "../_shared/llm.ts";
 
 interface ChoreSpec {
   library_chore_id: string;
@@ -118,14 +118,18 @@ async function buildLlmPlan(
   kidAge: number,
 ): Promise<Plan> {
   const fallback = buildDeterministicPlan(title, targetAmount, weeks, kidAge);
-  const key = Deno.env.get("OPENAI_API_KEY");
-  if (!key) return fallback;
-
   const allowed = libraryForAge(kidAge);
   const catalogLines = allowed
     .map((h) => `- ${h.id}: "${h.title}" (${h.cadence}, photo=${h.requires_photo})`)
     .join("\n");
-  const prompt = `You help a parent plan how a kid earns a goal through habits, while the parent funds the real cost.
+  const result = await chatCompletions({
+    json: true,
+    temperature: 0.4,
+    capability: "text",
+    messages: [{
+      role: "user",
+      content:
+        `You help a parent plan how a kid earns a goal through habits, while the parent funds the real cost.
 Goal: "${title}", cost $${targetAmount}, deadline in ${weeks} weeks, kid age ${kidAge}.
 Return ONLY JSON: {"weekly_parent_save": number, "chores": [{"library_chore_id": string, "title": string, "cadence": "once"|"daily"|"weekly", "weight_pct": number, "requires_photo": boolean, "is_makeup": false}], "why": string}
 Rules:
@@ -137,36 +141,22 @@ ${catalogLines}
 - requires_photo ONLY when the library says photo=true.
 - weekly_parent_save = about targetAmount / weeks.
 - is_makeup is always false in the initial plan; makeup chores are added by the parent later.
-- "why" is 2-3 sentences in plain parent language. No ML jargon.`;
-
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        temperature: 0.4,
-      }),
-    });
-    if (!res.ok) return fallback;
-    const data = await res.json();
-    const parsed = JSON.parse(data.choices[0].message.content) as Plan;
-    if (!parsed?.chores?.length || !parsed.why) return fallback;
-    const resolved = parsed.chores.slice(0, 8).map(resolveLibraryChore);
-    if (resolved.some((c) => c == null)) return fallback;
-    const chores = resolved as ChoreSpec[];
-    const weightSum = chores.reduce((s, c) => s + (Number(c.weight_pct) || 0), 0);
-    if (weightSum + 1e-9 < 100) return fallback;
-    return {
-      weekly_parent_save: Number(parsed.weekly_parent_save) || fallback.weekly_parent_save,
-      chores,
-      why: parsed.why,
-    };
-  } catch {
-    return fallback;
-  }
+- "why" is 2-3 sentences in plain parent language. No ML jargon.`,
+    }],
+  });
+  if (!result) return fallback;
+  const parsed = parseJsonObject(result.text) as Plan | null;
+  if (!parsed?.chores?.length || !parsed.why) return fallback;
+  const resolved = parsed.chores.slice(0, 8).map(resolveLibraryChore);
+  if (resolved.some((c) => c == null)) return fallback;
+  const chores = resolved as ChoreSpec[];
+  const weightSum = chores.reduce((s, c) => s + (Number(c.weight_pct) || 0), 0);
+  if (weightSum + 1e-9 < 100) return fallback;
+  return {
+    weekly_parent_save: Number(parsed.weekly_parent_save) || fallback.weekly_parent_save,
+    chores,
+    why: parsed.why,
+  };
 }
 
 Deno.serve(async (req) => {
