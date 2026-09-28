@@ -19,3 +19,43 @@ export function dealsUnderBudget(deals: Deal[], budget: number): Deal[] {
   if (deals.some((d) => d.price != null)) return [];
   return deals.slice(0, 3);
 }
+
+/** Optional Tavily search. Missing key or any error → empty + skipped. */
+export async function searchDeals(
+  query: string,
+  budget: number,
+): Promise<{ deals: Deal[]; dealSearch: "tavily" | "skipped" }> {
+  const key = Deno.env.get("TAVILY_API_KEY")?.trim();
+  if (!key) return { deals: [], dealSearch: "skipped" };
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        query,
+        max_results: 5,
+        search_depth: "basic",
+      }),
+    });
+    if (!res.ok) return { deals: [], dealSearch: "skipped" };
+    const data = await res.json();
+    const raw = Array.isArray(data?.results) ? data.results : [];
+    const mapped: Deal[] = raw.map((r: { title?: string; url?: string; content?: string }) => {
+      const snippet = String(r.content ?? "");
+      const price = extractUsdPrice(`${r.title ?? ""} ${snippet}`);
+      return {
+        title: String(r.title ?? "Deal"),
+        url: String(r.url ?? ""),
+        snippet: snippet.slice(0, 240) || undefined,
+        source: "tavily",
+        ...(price != null ? { price } : {}),
+      };
+    }).filter((d: Deal) => d.url);
+    return { deals: dealsUnderBudget(mapped, budget), dealSearch: "tavily" };
+  } catch {
+    return { deals: [], dealSearch: "skipped" };
+  }
+}

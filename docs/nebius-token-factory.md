@@ -18,7 +18,7 @@ Every LLM call (`suggest-plan`, `photo-assist`, `goal-cost-orchestrate`) uses th
 |---|---|---|
 | `NEBIUS_API_KEY` | No | Token Factory chat/completions |
 | `OPENAI_API_KEY` | No | Fallback LLM / vision |
-| `TAVILY_API_KEY` | No | Deal search after Accept. If unset, cost estimate still returns; `deal_search` is `skipped`. |
+| `TAVILY_API_KEY` | No | Deal search. If unset, estimate + chores still return; `deal_search` is `skipped`. |
 | `NEBIUS_TEXT_MODEL` | No | Override text model id |
 | `NEBIUS_VISION_MODEL` | No | Override vision model id |
 
@@ -38,16 +38,65 @@ Text (default, listed on the [public Token Factory catalog](https://tokenfactory
 
 Vision: the public catalog lists Nano as **text2text**. Account / third-party listings use `nvidia/Nemotron-3-Nano-Omni`. That string is the default constant in `_shared/llm.ts`. If your project shows a different id, set `NEBIUS_VISION_MODEL` (or edit the constant). Photo Assist still abstains when no key is set or the vision call fails.
 
-## New parent flow
+## Goal-first request / response
 
-After **Accept plan**, a sheet calls `POST /functions/v1/goal-cost-orchestrate`:
+Parent types goal text. Amount is **not** required. The app attaches primary kid age. Edge prompts include only: goal text, kidAge, weeks, `goal_mode`. No names, emails, auth uids, family ids, or ledger.
 
-- Always returns `estimate.{low,likely,high}` + a weekly save suggestion
-- Optionally returns `deals[]` under the likely budget when Tavily is configured
-- Parent can lock `goals.target_amount` + `ai_plans.suggestion.weekly_parent_save` and store `deal_snapshot` / `cost_estimate` JSON
+### `POST /functions/v1/suggest-plan` (combined parent review)
 
-Kid chore progress stays **percent-based** (rev 3). This path does not write chore rewards.
+**Request**
 
-The Basics demo walkthrough (`DEMO_WALK=true`) skips the cost sheet and uses the local Suggest Plan builder so the existing video script still applies.
+| Field | Required | Notes |
+|---|---|---|
+| `goalText` | yes (or legacy `title`) | Free-text goal |
+| `kidAge` | yes in product; defaults to 8 if omitted | Primary kid only |
+| `targetDate` | no | `YYYY-MM-DD`. If missing, Christmas/xmas infers next 25 Dec; else 12 weeks |
+| `targetAmount` | no | Parent prior. If missing, model or static `goal_mode` prior |
+| `goalMode` | no | `family_trip` \| `kid_item` \| `other`; else inferred from text |
+
+**Response (one payload)**
+
+```json
+{
+  "estimate": { "low": 800, "likely": 1200, "high": 1800, "currency": "USD", "rationale": "...", "provider": "deterministic" },
+  "weekly_save_suggestion": 100,
+  "weeks": 12,
+  "slots": { "goal_mode": "family_trip", "place": "Miami", "duration_days": 4, "party_size_default": 4 },
+  "weekly_parent_save": 100,
+  "chores": [],
+  "why": "...",
+  "deals": [],
+  "deal_search": "skipped"
+}
+```
+
+`provider` is `nebius` \| `openai` \| `deterministic`. Weekly save is **parent funding the real cost**, not kid pocket money.
+
+**Deals live on this combined response.** `goal-cost-orchestrate` can still refresh deals / re-estimate with the same optional-amount body. Both return `deals[]` + `deal_search`.
+
+### `POST /functions/v1/goal-cost-orchestrate`
+
+Same body rules as suggest-plan (`goalText` / `title`, optional `targetAmount`). Returns `estimate`, `weekly_save_suggestion`, `deals`, `deal_search`, `weeks`. Does not write chores.
+
+### Zero-key / LLM failure
+
+Never hard-fail Basics:
+
+- No keys, HTTP error, timeout, or bad JSON → deterministic estimate from the static prior table (`family_trip` 800/1200/1800, `kid_item` 40/80/150, `other` 80/150/250) or 80/100/125 bands around a parent-entered amount, plus age catalogs for chores.
+- These priors are starting bands, not live market prices. Parent confirms before lock.
+
+### `POST /functions/v1/photo-assist`
+
+Unchanged: `{ choreTitle, image? }` → `{ suggest, reason }`.
+
+## Flutter flow
+
+New Goal is goal-first: type the goal, Suggest returns estimate + chores (+ deals if Tavily is set) in one review step. Parent can override the amount, then Accept locks `goals.target_amount` and the plan.
+
+`DEMO_WALK=true` stays local-only (no network suggest / no extra cost-sheet beat) so the Basics video script still applies.
 
 Photo Assist is invoked from the parent Approvals card when a photo path exists. The parent is still the final approve/reject. Without a key (or if vision fails) the card abstains.
+
+## Privacy
+
+Family and AI-related data is never sold and never used for advertising. Edge logs (when added) may include provider, model, latency, success/fallback only — never keys or image bytes.
