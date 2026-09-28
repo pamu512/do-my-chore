@@ -100,3 +100,9 @@ Photo Assist is invoked from the parent Approvals card when a photo path exists.
 ## Privacy
 
 Family and AI-related data is never sold and never used for advertising. Edge logs (when added) may include provider, model, latency, success/fallback only — never keys or image bytes.
+
+### Photo hygiene
+
+Upload path: `ChoreService.uploadAndSubmit` reads the local file, runs `stripJpegExif` (drops JPEG APP1, which holds EXIF/GPS), then `uploadBinary`. Approvals signed URLs use a **300s** TTL. Photo Assist and the client do not log image bytes or base64.
+
+**Known gap (not silently claimed safe):** only JPEG APP1 is stripped. HEIC / PNG / WebP / other containers pass through unchanged. `image_picker` camera JPEGs are the demo path. This is not COPPA-grade consent or a full metadata scrubber. Do not tell real families that photos are location-safe until a broader strip exists.
