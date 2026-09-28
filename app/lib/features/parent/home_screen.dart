@@ -60,7 +60,17 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        appBar: AppBar(title: const Text('Parent Home')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+          children: const [
+            DmcSkeleton(height: 54, radius: 10),
+            SizedBox(height: 16),
+            DmcGoalCardSkeleton(),
+          ],
+        ),
+      );
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Parent Home')),
@@ -71,10 +81,13 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
           const SizedBox(height: 12),
           if (widget.choreService != null) _approvalsCard(context),
           if (widget.choreService != null) const SizedBox(height: 16),
-          ..._goals.map((g) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _goalCard(context, g),
-              )),
+          if (_goals.isEmpty && widget.goalService != null)
+            _noGoalsCard()
+          else
+            ..._goals.map((g) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _goalCard(context, g),
+                )),
           if (widget.goalService != null)
             FilledButton.icon(
               onPressed: () async {
@@ -90,6 +103,37 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
               label: const Text('New Goal'),
             ),
         ],
+      ),
+    );
+  }
+
+  /// First-run state: no goal yet, planner invites the parent in.
+  Widget _noGoalsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Dmc.pineSoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.flag_outlined, size: 22, color: Dmc.pine),
+            ),
+            const SizedBox(height: 12),
+            Text('No goal yet',
+                style: Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(
+              'Set one up below - the app does the save math for you.',
+              style: TextStyle(fontSize: 13, color: Dmc.muted),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -216,8 +260,36 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 3),
-            Text(g.title, style: Dmc.displayStyle(size: 23, weight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Dmc.line),
+                  ),
+                  child: Image.asset(
+                    'assets/photos/castle.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: Dmc.marigoldSoft,
+                      child: const Icon(Icons.castle_outlined,
+                          size: 22, color: Dmc.faint),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(g.title,
+                      style:
+                          Dmc.displayStyle(size: 23, weight: FontWeight.w700)),
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
             // The money plan: real dollars, parent's side of the ledger.
             Text.rich(
@@ -304,7 +376,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                             MaterialPageRoute(
                                 builder: (_) => AlbumScreen(
                                     service: widget.albumService!,
-                                    goalId: g.id)),
+                                    goalId: g.id,
+                                    choreService: widget.choreService)),
                           ),
                   icon: const Icon(Icons.photo_album_outlined, size: 17),
                   label: const Text('Goal Album'),

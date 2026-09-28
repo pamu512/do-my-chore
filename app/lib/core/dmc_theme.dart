@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
 /// C-Ledger design tokens: calm porcelain surfaces, pine for the parent,
 /// marigold for the kid. Display serif (Fraunces) for headings and numbers,
@@ -314,4 +315,113 @@ class DmcProgressRail extends StatelessWidget {
     fontSize: 11.5,
     color: Dmc.faint,
   );
+}
+
+/// Shimmer-free skeleton block used by the loading states. A soft pulse on
+/// cream keeps the calm of the design while matching final layout shapes.
+class DmcSkeleton extends StatefulWidget {
+  const DmcSkeleton({
+    super.key,
+    this.width,
+    this.height = 14,
+    this.radius = 6,
+    this.margin,
+  });
+
+  final double? width;
+  final double height;
+  final double radius;
+  final EdgeInsetsGeometry? margin;
+
+  @override
+  State<DmcSkeleton> createState() => _DmcSkeletonState();
+}
+
+class _DmcSkeletonState extends State<DmcSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(
+          (math.sin(_c.value * 2 * math.pi) + 1) / 2,
+        );
+        final color = Color.lerp(
+          const Color(0xFFEFEBE1),
+          const Color(0xFFF7F4EC),
+          t,
+        )!;
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          margin: widget.margin,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(widget.radius),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A goal-card-shaped skeleton: header line, big balance line, rail, rows.
+class DmcGoalCardSkeleton extends StatelessWidget {
+  const DmcGoalCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const DmcSkeleton(width: 110, height: 11),
+                const Spacer(),
+                Container(
+                  width: 44,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFEBE1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Dmc.line),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const DmcSkeleton(width: 180, height: 26),
+            const SizedBox(height: 14),
+            const DmcSkeleton(height: 6, radius: 3),
+            const SizedBox(height: 14),
+            const DmcSkeleton(height: 30, radius: 15),
+            const SizedBox(height: 16),
+            ...List.generate(3, (i) => const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Row(children: [
+                    DmcSkeleton(width: 20),
+                    SizedBox(width: 12),
+                    Expanded(child: DmcSkeleton(height: 14)),
+                  ]),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
 }

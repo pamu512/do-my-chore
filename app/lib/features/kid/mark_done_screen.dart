@@ -68,10 +68,14 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
     if (widget.chore.requiresPhoto && _photoPath == null) return;
     setState(() => _submitting = true);
     try {
-      await widget.service.uploadAndSubmit(
-        choreId: widget.chore.id,
-        localPhotoPath: _photoPath!,
-      );
+      if (widget.chore.requiresPhoto) {
+        await widget.service.uploadAndSubmit(
+          choreId: widget.chore.id,
+          localPhotoPath: _photoPath!,
+        );
+      } else {
+        await widget.service.submitChore(choreId: widget.chore.id);
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
@@ -91,7 +95,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
         expectedInstances(cadence: c.cadence, weeksN: widget.weeksN!);
     final credit =
         instanceCreditPct(weightPct: c.weightPct, expectedInstances: expected);
-    return 'Each check-in adds +${credit.toStringAsFixed(1)}%';
+    return 'each check-in adds +${credit.toStringAsFixed(1)}%';
   }
 
   @override
@@ -145,7 +149,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('WHEN APPROVED', style: Dmc.micro),
+                  Text('THIS CHORE IS WORTH', style: Dmc.micro),
                   const SizedBox(height: 3),
                   Text.rich(
                     TextSpan(
@@ -169,7 +173,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${chore.cadenceLabel} chore. ${_creditLine()}',
+                    '${chore.cadenceLabel} chore · ${_creditLine()}',
                     style: TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
                   ),
                 ],
@@ -181,9 +185,42 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
             Text('This one needs a photo so your parent can see it.',
                 style: TextStyle(fontSize: 13, color: Dmc.muted)),
             const SizedBox(height: 8),
-            FilledButton.tonalIcon(
+            if (_photoPath != null)
+              // The actual captured photo, framed like a snapshot.
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Dmc.surface,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Dmc.line),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Dmc.ink.withValues(alpha: 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: Image.file(
+                    File(_photoPath!),
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      height: 180,
+                      color: Dmc.marigoldSoft,
+                      child: const Icon(Icons.image_outlined,
+                          size: 30, color: Dmc.faint),
+                    ),
+                  ),
+                ),
+              ),
+            OutlinedButton.icon(
               onPressed: _pickPhoto,
-              style: FilledButton.styleFrom(
+              style: OutlinedButton.styleFrom(
                 backgroundColor: Dmc.surface,
                 foregroundColor: Dmc.ink,
                 side: const BorderSide(color: Dmc.lineStrong),

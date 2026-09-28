@@ -22,32 +22,80 @@ class ApprovalsScreen extends StatefulWidget {
 class _ApprovalsScreenState extends State<ApprovalsScreen> {
   List<PendingApproval> _pending = const [];
   bool _loading = true;
+  String? _error;
+
+  // Signed URLs for submitted photos, keyed by storage path.
+  final Map<String, Future<String>> _photoFutures = {};
 
   @override
-  void initState() {
-    super.initState();
-    _refresh();
+  void dispose() {
+    _photoFutures.clear();
+    super.dispose();
   }
 
   Future<void> _refresh() async {
-    final pending = await widget.service.pendingForParent();
-    if (mounted) {
-      setState(() {
-        _pending = pending;
-        _loading = false;
-      });
+    try {
+      final pending = await widget.service.pendingForParent();
+      if (mounted) {
+        setState(() {
+          _pending = pending;
+          _loading = false;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Could not load approvals. Pull to retry.';
+        });
+      }
     }
   }
 
+  /// Marks a card as decided and animates it out before the list refresh.
+  final Set<String> _decided = {};
+
   Future<void> _approve(PendingApproval p) async {
-    await widget.service.approveSubmission(p.submissionId);
+    setState(() => _decided.add(p.submissionId));
+    try {
+      await widget.service.approveSubmission(p.submissionId);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _decided.remove(p.submissionId));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not approve: $e')));
+      }
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 420));
     await _refresh();
   }
 
   Future<void> _reject(PendingApproval p) async {
     final nudge = rejectNudge(choreTitle: p.choreTitle);
-    await widget.service.rejectSubmission(p.submissionId, nudge);
+    setState(() => _decided.add(p.submissionId));
+    try {
+      await widget.service.rejectSubmission(p.submissionId, nudge);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _decided.remove(p.submissionId));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not reject: $e')));
+      }
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 420));
     await _refresh();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Sent back to Arjun with a nudge to try again.'),
+        action: SnackBarAction(
+          label: 'OK',
+          onPressed: () {},
+        ),
+      ));
+    }
   }
 
   String _creditPreview(PendingApproval p) {
@@ -64,7 +112,47 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     if (_loading) {
       return Scaffold(
         appBar: AppBar(title: const Text('Approvals')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+          children: const [
+            DmcSkeleton(height: 220, radius: 12),
+            SizedBox(height: 14),
+            DmcSkeleton(height: 120, radius: 12),
+          ],
+        ),
+      );
+    }
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Approvals')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off_outlined,
+                    size: 30, color: Color(0xFF9AA39B)),
+                const SizedBox(height: 10),
+                Text('Couldn\'t load the inbox',
+                    style:
+                        Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(_error!,
+                    style:
+                        const TextStyle(fontSize: 13, color: Dmc.muted)),
+                const SizedBox(height: 14),
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() => _loading = true);
+                    _refresh();
+                  },
+                  child: const Text('Try again'),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
     if (_pending.isEmpty) {
@@ -88,85 +176,207 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Approvals')),
-      body: ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-      children: _pending.map((p) {
-        final photo = p.requiresPhoto;
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('SUBMITTED BY ARJUN', style: Dmc.micro),
-                const SizedBox(height: 3),
-                Text(p.choreTitle,
-                    style:
-                        Dmc.displayStyle(size: 21, weight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(
-                  '${_creditPreview(p)} · ${photo ? 'photo attached' : 'no photo needed'}',
-                  style: TextStyle(fontSize: 13.5, color: Dmc.muted),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+          children: [
+            for (final p in _pending)
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 380),
+                curve: Curves.easeOutCubic,
+                opacity: _decided.contains(p.submissionId) ? 0 : 1,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 380),
+                  curve: Curves.easeOutCubic,
+                  offset: _decided.contains(p.submissionId)
+                      ? const Offset(0, -0.06)
+                      : Offset.zero,
+                  child: _card(p),
                 ),
-                const SizedBox(height: 14),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-                  decoration: BoxDecoration(
-                    color: Dmc.cream,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Dmc.line),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.auto_awesome, size: 15, color: Dmc.faint),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Text(
-                          photo
-                              ? 'AI assist is advisory only. The photo check-in is a habit cue, not a payroll audit - you decide.'
-                              : 'No photo needed for this one - your call is the final word.',
-                          style: TextStyle(
-                              fontSize: 13,
-                              height: 1.45,
-                              color: Dmc.ink2),
-                        ),
-                      ),
-                    ],
-                  ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _card(PendingApproval p) {
+    final photo = p.requiresPhoto;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('SUBMITTED BY ARJUN', style: Dmc.micro)
+                .intoPadding(const EdgeInsets.fromLTRB(16, 14, 16, 0)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 3, 16, 0),
+              child: Text(p.choreTitle,
+                  style:
+                      Dmc.displayStyle(size: 21, weight: FontWeight.w600)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
+              child: Text(
+                '${_creditPreview(p)} · ${photo ? 'photo attached' : 'no photo needed'}',
+                style: TextStyle(fontSize: 13.5, color: Dmc.muted),
+              ),
+            ),
+            if (photo && p.photoUrl != null) ...[
+              const SizedBox(height: 12),
+              _PhotoFrame(
+                urlFuture: _photoUrlFuture(p.photoUrl!),
+              ),
+            ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+                decoration: BoxDecoration(
+                  color: Dmc.cream,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Dmc.line),
                 ),
-                const SizedBox(height: 14),
-                Row(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Icon(Icons.auto_awesome, size: 15, color: Dmc.faint),
+                    const SizedBox(width: 9),
                     Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => _approve(p),
-                        icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Approve'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _reject(p),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Dmc.clayText,
-                          side: const BorderSide(color: Color(0xFFE3C4BA)),
-                        ),
-                        icon: const Icon(Icons.close, size: 18),
-                        label: const Text('Reject with nudge',
-                            overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        photo
+                            ? 'Looks complete - you make the call.'
+                            : 'No photo needed - your word is final here.',
+                        style: TextStyle(
+                            fontSize: 13, height: 1.45, color: Dmc.ink2),
                       ),
                     ),
                   ],
                 ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _decided.contains(p.submissionId)
+                          ? null
+                          : () => _approve(p),
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Approve'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _decided.contains(p.submissionId)
+                          ? null
+                          : () => _reject(p),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Dmc.clayText,
+                        side: const BorderSide(color: Color(0xFFE3C4BA)),
+                      ),
+                      icon: const Icon(Icons.close, size: 18),
+                      label: const Text('Reject with nudge',
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String> _photoUrlFuture(String storagePath) {
+    return _photoFutures.putIfAbsent(
+        storagePath, () => widget.service.photoUrl(storagePath));
+  }
+}
+
+extension _Pad on Widget {
+  Widget intoPadding(EdgeInsetsGeometry p) => Padding(padding: p, child: this);
+}
+
+/// The submitted photo in a card-mounted frame: loads the signed URL,
+/// shows a placeholder frame while loading and a note if it fails.
+class _PhotoFrame extends StatelessWidget {
+  const _PhotoFrame({required this.urlFuture});
+
+  final Future<String> urlFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: urlFuture,
+      builder: (context, snap) {
+        Widget image;
+        if (snap.connectionState != ConnectionState.done) {
+          image = const SizedBox(
+            height: 170,
+            child: Center(
+                child: DmcSkeleton(height: 170, radius: 2)),
+          );
+        } else if (snap.hasError || snap.data == null) {
+          image = Container(
+            height: 110,
+            color: Dmc.cream,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.image_outlined, size: 16, color: Dmc.faint),
+                  const SizedBox(width: 8),
+                  Text('Photo couldn\'t load',
+                      style: TextStyle(fontSize: 12.5, color: Dmc.muted)),
+                ],
+              ),
+            ),
+          );
+        } else {
+          image = Image.network(
+            snap.data!,
+            height: 190,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              height: 110,
+              color: Dmc.cream,
+              child: Center(
+                  child: Icon(Icons.image_outlined,
+                      size: 22, color: Dmc.faint)),
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: Dmc.surface,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Dmc.line),
+              boxShadow: [
+                BoxShadow(
+                  color: Dmc.ink.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
               ],
             ),
+            child: ClipRRect(borderRadius: BorderRadius.circular(2), child: image),
           ),
         );
-      }).toList(),
-      ),
+      },
     );
   }
 }

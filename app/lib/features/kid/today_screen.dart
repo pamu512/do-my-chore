@@ -51,85 +51,169 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        appBar: AppBar(title: const Text('Kid Today')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+          children: const [
+            DmcGoalCardSkeleton(),
+            SizedBox(height: 16),
+            DmcSkeleton(height: 11, margin: EdgeInsets.symmetric(vertical: 10)),
+            SizedBox(height: 8),
+            DmcSkeleton(height: 96),
+          ],
+        ),
+      );
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Kid Today')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
-          ..._goals.map(_goalHero),
+          if (_goals.isEmpty)
+            const _NoGoalCard()
+          else
+            ..._goals.map(_goalHero),
           const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(2, 10, 2, 8),
-            child: Row(
-              children: [
-                Text("TODAY'S CHORES", style: Dmc.micro),
-                const Spacer(),
-                Text(
-                  'Tap one when it\'s done',
-                  style: TextStyle(fontSize: 12, color: Dmc.faint),
-                ),
-              ],
+          if (_chores.isEmpty)
+            const _NoChoresCard()
+          else ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(2, 10, 2, 8),
+              child: Row(
+                children: [
+                  Text("TODAY'S CHORES", style: Dmc.micro),
+                  const Spacer(),
+                  Text(
+                    'Tap one when it\'s done',
+                    style: TextStyle(fontSize: 12, color: Dmc.faint),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                for (var i = 0; i < _chores.length; i++)
-                  _choreRow(context, _chores[i], i + 1),
-              ],
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  for (var i = 0; i < _chores.length; i++)
+                    _choreRow(context, _chores[i], i + 1),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
   Widget _goalHero(GoalProgressView g) {
+    final pct = g.choreProgressPct;
+    final earned = pct >= 100 - 1e-9;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('OUR GOAL', style: Dmc.micro),
-            const SizedBox(height: 3),
-            Text(g.title, style: Dmc.displayStyle(size: 23, weight: FontWeight.w700)),
-            const SizedBox(height: 14),
-            DmcProgressRail(
-              pct: g.choreProgressPct,
-              isKid: true,
-              leftCap: '0%',
-              rightCap: '100%',
-            ),
-            const SizedBox(height: 10),
-            Text.rich(
-              TextSpan(
-                text: '${g.choreProgressPct.toStringAsFixed(0)}%',
-                style: Dmc.displayStyle(size: 30, weight: FontWeight.w700, color: Dmc.marigoldDeep),
-                children: [
-                  TextSpan(
-                    text: ' of the way there',
-                    style: TextStyle(
-                      fontFamily: Dmc.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Dmc.muted,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Castle hero: the shared dream at the top of the kid's day.
+          SizedBox(
+            height: 130,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  'assets/photos/castle.jpg',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                ),
+                // Porcelain scrim so white type stays AA on any photo.
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        const Color(0x331F2621),
+                        const Color(0xB31F2621),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        'OUR GOAL',
+                        style: Dmc.micro.copyWith(
+                          color: const Color(0xFFE9E4D8),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        g.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Dmc.displayStyle(
+                          size: 23,
+                          weight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Keep the habits going. 100% earns the '
-              '${g.goalMode == 'family_trip' ? 'trip' : 'reward'}.',
-              style: TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DmcProgressRail(
+                  pct: pct,
+                  isKid: true,
+                  leftCap: '0%',
+                  rightCap: '100%',
+                ),
+                const SizedBox(height: 10),
+                Text.rich(
+                  TextSpan(
+                    text: '${pct.toStringAsFixed(0)}%',
+                    style: Dmc.displayStyle(
+                        size: 30,
+                        weight: FontWeight.w700,
+                        color: Dmc.marigoldDeep),
+                    children: [
+                      TextSpan(
+                        text: ' of the way there',
+                        style: TextStyle(
+                          fontFamily: Dmc.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Dmc.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  earned
+                      ? 'You earned it. Talk to your parent about the ${g.goalMode == 'family_trip' ? 'trip' : 'reward'}.'
+                      : 'Keep the habits going. 100% earns the '
+                          '${g.goalMode == 'family_trip' ? 'trip' : 'reward'}.',
+                  style:
+                      TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -190,7 +274,7 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    '${c.cadenceLabel} · worth +${c.weightPct.toStringAsFixed(0)}%',
+                    _choreMeta(c),
                     style: TextStyle(fontSize: 12.5, color: Dmc.muted),
                   ),
                   if (retry)
@@ -239,6 +323,92 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
                 padding: const EdgeInsets.only(top: 2),
                 child: Icon(Icons.chevron_right, size: 18, color: Dmc.faint),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _choreMeta(KidChoreCard c) {
+    if (c.isMakeup) return 'Makeup chore · catches you up';
+    if (c.isBonus) return 'Bonus chore · extra points';
+    switch (c.cadence) {
+      case 'daily':
+        return 'Every day · earns up to ${c.weightPct.toStringAsFixed(0)}%';
+      case 'weekly':
+        return 'Every week · earns up to ${c.weightPct.toStringAsFixed(0)}%';
+      default:
+        return 'One time · earns ${c.weightPct.toStringAsFixed(0)}%';
+    }
+  }
+}
+
+/// Warm empty state: no active goal yet (parent hasn't set one).
+class _NoGoalCard extends StatelessWidget {
+  const _NoGoalCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Dmc.marigoldSoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.flag_outlined,
+                  size: 22, color: Dmc.marigoldDeep),
+            ),
+            const SizedBox(height: 12),
+            Text('No goal yet',
+                style: Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(
+              'Ask your parent to set one up.',
+              style: TextStyle(fontSize: 13, color: Dmc.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Empty state: goal exists but no chores are assigned today.
+class _NoChoresCard extends StatelessWidget {
+  const _NoChoresCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Dmc.pineSoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.task_alt_outlined,
+                  size: 22, color: Dmc.pine),
+            ),
+            const SizedBox(height: 12),
+            Text('All clear today',
+                style: Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(
+              'New chores appear when your parent adds them.',
+              style: TextStyle(fontSize: 13, color: Dmc.muted),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
