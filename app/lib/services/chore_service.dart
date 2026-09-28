@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/demo_auth.dart';
 import '../models/role.dart';
+import 'edge_ai_client.dart';
 
 /// Allowed submission status transitions. A rejected row is never flipped
 /// back to pending — a retry always inserts a new submission row.
@@ -91,6 +93,38 @@ class ChoreService {
   /// Parent-side signed URL for a stored chore photo (private bucket).
   Future<String> photoUrl(String storagePath) {
     return _parent.storage.from('chore-photos').createSignedUrl(storagePath, 3600);
+  }
+
+  /// Advisory photo-assist for a pending card. Parent stays final.
+  Future<PhotoAssistResult> assistPending({
+    required String choreTitle,
+    String? storagePath,
+  }) async {
+    String? b64;
+    final path = storagePath;
+    if (path != null && path.isNotEmpty) {
+      try {
+        final signed = await photoUrl(path);
+        final client = HttpClient();
+        try {
+          final req = await client.getUrl(Uri.parse(signed));
+          final res = await req.close().timeout(const Duration(seconds: 6));
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            final bytes = await res.fold<List<int>>(<int>[], (a, b) => a..addAll(b));
+            if (bytes.isNotEmpty) b64 = base64Encode(bytes);
+          }
+        } finally {
+          client.close(force: true);
+        }
+      } catch (_) {
+        // ponytail: missing photo / storage → function abstains
+      }
+    }
+    return invokePhotoAssist(
+      _parent,
+      choreTitle: choreTitle,
+      imageBase64: b64,
+    );
   }
 
   /// Parent approves: flips the submission to approved. Progress is derived

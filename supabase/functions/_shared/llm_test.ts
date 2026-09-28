@@ -42,3 +42,10 @@ Deno.test("parseJsonObject strips fences and leftover prose", () => {
   const parsed = parseJsonObject('Sure.\n```json\n{"low": 1, "likely": 2}\n```\n');
   assertEquals(parsed, { low: 1, likely: 2 });
 });
+
+Deno.test("parseJsonObject ignores Nemotron think blocks", () => {
+  const parsed = parseJsonObject(
+    '<think>braces { like this } are noise</think>\n{"low": 10, "likely": 20}',
+  );
+  assertEquals(parsed, { low: 10, likely: 20 });
+});

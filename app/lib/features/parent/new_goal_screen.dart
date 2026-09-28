@@ -28,6 +28,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
   bool _allowMakeup = false;
 
   AiPlanSuggestion? _plan;
+  String _planSource = 'deterministic';
   bool _loading = false;
   String? _error;
 
@@ -52,13 +53,16 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
       final amount = double.tryParse(_amount.text) ?? 3500;
       final date = DateTime.tryParse(_date.text) ??
           DateTime.now().add(const Duration(days: 98));
-      final plan = await widget.goalService.suggestPlan(
+      final result = await widget.goalService.suggestPlan(
         title: title,
         targetAmount: amount,
         targetDate: date,
         kidAge: int.tryParse(_age.text) ?? 8,
       );
-      setState(() => _plan = plan);
+      setState(() {
+        _plan = result.plan;
+        _planSource = result.source;
+      });
     } catch (e) {
       setState(() => _error = 'Could not build plan: $e');
     } finally {
@@ -77,7 +81,11 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
         targetDate: DateTime.tryParse(_date.text),
         allowMakeup: _allowMakeup,
       );
-      await widget.goalService.acceptPlan(goalId: goalId, plan: plan);
+      await widget.goalService.acceptPlan(
+        goalId: goalId,
+        plan: plan,
+        source: _planSource,
+      );
       if (!mounted) return;
       // DEMO_WALK / Basics video: Accept still returns home. The cost sheet
       // is the Nebius eligibility path and must not block that beat.

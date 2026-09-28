@@ -64,6 +64,19 @@ void main() {
       expect(kept.map((d) => d.title), ['Fit']);
     });
 
+    test('all priced deals over budget stay empty', () {
+      final kept = dealsUnderBudget(
+        [
+          const GoalDeal(
+              title: 'Over', url: 'https://a.example', price: 4000),
+          const GoalDeal(
+              title: 'Also over', url: 'https://b.example', price: 5000),
+        ],
+        budget: 3500,
+      );
+      expect(kept, isEmpty);
+    });
+
     test('when no prices parse, still returns the top links', () {
       final kept = dealsUnderBudget(
         const [

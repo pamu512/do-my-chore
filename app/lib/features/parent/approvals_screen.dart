@@ -33,6 +33,7 @@ class ApprovalsScreen extends StatefulWidget {
 
 class _ApprovalsScreenState extends State<ApprovalsScreen> {
   List<PendingApproval> _pending = const [];
+  final Map<String, String> _assist = {};
   bool _loading = true;
   String? _error;
 
@@ -63,6 +64,19 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           _loading = false;
           _error = 'Could not load approvals. Pull to retry.';
         });
+      }
+    }
+    for (final p in pending) {
+      if (!p.requiresPhoto) continue;
+      try {
+        final assist = await widget.service.assistPending(
+          choreTitle: p.choreTitle,
+          storagePath: p.photoUrl,
+        );
+        if (!mounted) return;
+        setState(() => _assist[p.submissionId] = assist.reason);
+      } catch (_) {
+        // ponytail: assist is advisory; the card still works
       }
     }
   }
@@ -329,7 +343,8 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                     Expanded(
                       child: Text(
                         photo
-                            ? 'Looks complete - you make the call.'
+                            ? (_assist[p.submissionId] ??
+                                'AI assist is advisory only. The photo check-in is a habit cue, not a payroll audit - you decide.')
                             : 'No photo needed - your word is final here.',
                         style: TextStyle(
                             fontSize: 13, height: 1.45, color: Dmc.ink2),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../core/dmc_theme.dart';
+import '../../services/ai_service.dart';
 import '../../services/cost_estimate.dart';
 import '../../services/edge_ai_client.dart';
 import '../../services/goal_service.dart';
+import '../../services/ledger_math.dart';
 
 /// Post-Accept parent sheet: show low/likely/high cost and optional deals,
 /// then lock target_amount + weekly save. Kid % path is untouched.
@@ -37,12 +39,8 @@ class _CostDealSheetState extends State<CostDealSheet> {
   double? _selected;
   GoalDeal? _selectedDeal;
 
-  int get _weeks {
-    final d = widget.targetDate;
-    if (d == null) return 12;
-    final days = d.difference(DateTime.now()).inDays;
-    return days < 7 ? 1 : (days / 7).ceil();
-  }
+  int get _weeks =>
+      widget.targetDate == null ? 12 : weeksUntil(widget.targetDate!);
 
   @override
   void initState() {
@@ -51,22 +49,42 @@ class _CostDealSheetState extends State<CostDealSheet> {
   }
 
   Future<void> _load() async {
-    final result = await invokeGoalCostOrchestrate(
-      widget.goalService.parentClient,
-      title: widget.title,
-      targetAmount: widget.enteredCost,
-      targetDate: widget.targetDate,
-      goalMode: widget.goalMode,
-    );
-    if (!mounted) return;
-    setState(() {
-      _result = result;
-      _selected = result.estimate.likely;
-      _loading = false;
-    });
+    try {
+      final result = await invokeGoalCostOrchestrate(
+        widget.goalService.parentClient,
+        title: widget.title,
+        targetAmount: widget.enteredCost,
+        targetDate: widget.targetDate,
+        goalMode: widget.goalMode,
+      );
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _selected = result.estimate.likely;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final fallback = buildDeterministicCostEstimate(
+        title: widget.title,
+        enteredCost: widget.enteredCost,
+        weeks: _weeks,
+      );
+      setState(() {
+        _result = CostOrchestrateResult(
+          estimate: fallback,
+          weeklySaveSuggestion: fallback.weeklySaveSuggestion,
+          deals: const [],
+          dealSearch: 'skipped',
+        );
+        _selected = fallback.likely;
+        _error = null;
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  Future<void> _lock({required double amount, GoalDeal? deal, bool keepEntered = false}) async {
+  Future<void> _lock({required double amount, GoalDeal? deal}) async {
     final result = _result;
     if (result == null) return;
     setState(() {
@@ -74,17 +92,15 @@ class _CostDealSheetState extends State<CostDealSheet> {
       _error = null;
     });
     try {
-      if (!keepEntered) {
-        await widget.goalService.lockGoalMoney(
-          goalId: widget.goalId,
-          payload: lockPayload(
-            estimate: result.estimate,
-            lockedAmount: amount,
-            weeks: _weeks,
-            deal: deal,
-          ),
-        );
-      }
+      await widget.goalService.lockGoalMoney(
+        goalId: widget.goalId,
+        payload: lockPayload(
+          estimate: result.estimate,
+          lockedAmount: amount,
+          weeks: _weeks,
+          deal: deal,
+        ),
+      );
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
@@ -167,19 +183,18 @@ class _CostDealSheetState extends State<CostDealSheet> {
                       deal: _selectedDeal,
                     ),
             child: Text(
-              'Lock \$${(_selected ?? e.likely).toStringAsFixed(0)} and weekly save',
+              'Lock \$${(_selected ?? e.likely).toStringAsFixed(0)} '
+              '(~\$${suggestedSavePerWeek(cost: _selected ?? e.likely, weeksN: _weeks).toStringAsFixed(0)}/wk)',
             ),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: _locking
                 ? null
-                : () => _lock(
-                      amount: widget.enteredCost,
-                      keepEntered: true,
-                    ),
+                : () => _lock(amount: widget.enteredCost),
             child: Text(
-              'Keep my \$${widget.enteredCost.toStringAsFixed(0)}',
+              'Keep my \$${widget.enteredCost.toStringAsFixed(0)} '
+              '(~\$${suggestedSavePerWeek(cost: widget.enteredCost, weeksN: _weeks).toStringAsFixed(0)}/wk)',
             ),
           ),
         ],
@@ -261,6 +276,13 @@ class _CostDealSheetState extends State<CostDealSheet> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12.5, color: Dmc.muted),
+                ),
+              if (deal.url.startsWith('https://'))
+                Text(
+                  deal.url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, color: Dmc.faint),
                 ),
             ],
           ),

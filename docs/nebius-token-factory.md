@@ -48,4 +48,6 @@ After **Accept plan**, a sheet calls `POST /functions/v1/goal-cost-orchestrate`:
 
 Kid chore progress stays **percent-based** (rev 3). This path does not write chore rewards.
 
-The Basics demo walkthrough (`DEMO_WALK=true`) skips the sheet so the existing video script still applies.
+The Basics demo walkthrough (`DEMO_WALK=true`) skips the cost sheet and uses the local Suggest Plan builder so the existing video script still applies.
+
+Photo Assist is invoked from the parent Approvals card when a photo path exists. The parent is still the final approve/reject. Without a key (or if vision fails) the card abstains.

@@ -30,7 +30,7 @@ Future<PhotoAssistResult> invokePhotoAssist(
     final res = await client.functions.invoke(
       'photo-assist',
       body: {'choreTitle': choreTitle, 'image': imageBase64},
-    );
+    ).timeout(const Duration(seconds: 8));
     final data = res.data;
     if (data is Map) {
       return PhotoAssistResult.fromJson(Map<String, dynamic>.from(data));
@@ -62,7 +62,7 @@ Future<CostOrchestrateResult> invokeGoalCostOrchestrate(
         'targetDate': targetDate?.toIso8601String().substring(0, 10),
         'goalMode': goalMode,
       },
-    );
+    ).timeout(const Duration(seconds: 12));
     final data = res.data;
     if (data is Map) {
       return parseCostOrchestrateResponse(
@@ -88,15 +88,33 @@ Future<CostOrchestrateResult> invokeGoalCostOrchestrate(
   );
 }
 
+class SuggestPlanResult {
+  final AiPlanSuggestion plan;
+  final String source; // llm | deterministic
+
+  const SuggestPlanResult({required this.plan, required this.source});
+}
+
 extension GoalServiceAi on GoalService {
   /// Live suggest-plan when the function is deployed; otherwise the local
   /// deterministic builder (the Flutter path used today).
-  Future<AiPlanSuggestion> suggestPlan({
+  Future<SuggestPlanResult> suggestPlan({
     required String title,
     required double targetAmount,
     required DateTime targetDate,
     required int kidAge,
   }) async {
+    final local = () => SuggestPlanResult(
+          plan: buildDeterministicPlan(
+            title: title,
+            targetAmount: targetAmount,
+            weeks: weeksUntil(targetDate),
+            kidAge: kidAge,
+          ),
+          source: 'deterministic',
+        );
+    // Basics video / walkthrough: never block on a network plan.
+    if (const bool.fromEnvironment('DEMO_WALK')) return local();
     try {
       final res = await parentClient.functions.invoke(
         'suggest-plan',
@@ -106,20 +124,17 @@ extension GoalServiceAi on GoalService {
           'targetDate': targetDate.toIso8601String().substring(0, 10),
           'kidAge': kidAge,
         },
-      );
+      ).timeout(const Duration(seconds: 8));
       final data = res.data;
       if (data is Map) {
         final plan = AiPlanSuggestion.fromJson(Map<String, dynamic>.from(data));
-        if (validatePlan(plan) == null) return plan;
+        if (validatePlan(plan) == null) {
+          return SuggestPlanResult(plan: plan, source: 'llm');
+        }
       }
     } catch (_) {
       // ponytail: keep the offline builder as the source of truth
     }
-    return buildDeterministicPlan(
-      title: title,
-      targetAmount: targetAmount,
-      weeks: weeksUntil(targetDate),
-      kidAge: kidAge,
-    );
+    return local();
   }
 }

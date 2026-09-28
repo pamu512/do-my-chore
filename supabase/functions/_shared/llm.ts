@@ -69,8 +69,13 @@ export function resolveLlmProvider(
   return null;
 }
 
+/** Strip Nemotron / reasoning traces so JSON parse sees the payload. */
+export function stripThink(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
 export function parseJsonObject(text: string): Record<string, unknown> | null {
-  const trimmed = text.trim();
+  const trimmed = stripThink(text);
   const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
   const body = fence?.[1] ?? trimmed;
   const start = body.indexOf("{");
@@ -112,10 +117,15 @@ export async function chatCompletions(opts: {
     model,
     messages: opts.messages,
     temperature: opts.temperature ?? 0.3,
+    max_tokens: 2048,
   };
   // Token Factory / Nemotron may ignore response_format; OpenAI uses it.
   if (opts.json && resolved.provider === "openai") {
     body.response_format = { type: "json_object" };
+  }
+  // Nano defaults to enable_thinking; think-blocks break JSON parse.
+  if (resolved.provider === "nebius") {
+    body.chat_template_kwargs = { enable_thinking: false };
   }
 
   try {

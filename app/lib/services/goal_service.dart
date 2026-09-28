@@ -130,7 +130,9 @@ class GoalService {
         .eq('accepted', true)
         .order('created_at', ascending: false)
         .limit(1);
-    if (plans.isEmpty) return;
+    if (plans.isEmpty) {
+      throw StateError('No accepted plan to lock a weekly save against');
+    }
     final suggestion =
         Map<String, dynamic>.from(plans.first['suggestion'] as Map);
     suggestion['weekly_parent_save'] = payload.weeklyParentSave;
