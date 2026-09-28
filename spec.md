@@ -1,12 +1,12 @@
 # Do My Chore — Technical Spec
 
-> Design rev 2 authoritative: [`docs/superpowers/specs/2026-09-27-do-my-chore-design.md`](docs/superpowers/specs/2026-09-27-do-my-chore-design.md) · Implementation plan: [`docs/superpowers/plans/2026-09-27-do-my-chore.md`](docs/superpowers/plans/2026-09-27-do-my-chore.md)
+> Rev 3 money model is authoritative: [`docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md`](docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md) · Plan: [`docs/superpowers/plans/2026-09-27-do-my-chore-money-model-rev3.md`](docs/superpowers/plans/2026-09-27-do-my-chore-money-model-rev3.md)
 
 ## Stack
 
-- **Flutter 3.22+ (Dart 3)** — `supabase_flutter`, `flutter_riverpod`, `go_router`, `image_picker`, `cached_network_image`; iOS simulator is the demo target
-- **Supabase** — Auth, Postgres with RLS, Storage (photos), Edge Functions (Deno) for AI
-- **Tests** — `dart_test` / `flutter_test`; TDD per task (failing test → implement → pass → commit)
+- **Flutter 3.22+ (Dart 3)** - `supabase_flutter`, `flutter_riverpod`, `go_router`, `image_picker`, `cached_network_image`; iOS simulator is the demo target
+- **Supabase** - Auth, Postgres with RLS, Storage (photos), Edge Functions (Deno) for AI
+- **Tests** - `dart_test` / `flutter_test`; TDD per task (failing test -> implement -> pass -> commit)
 
 ## Data model
 
@@ -14,64 +14,76 @@
 |---|---|---|
 | `families` | id | one seeded demo family |
 | `profiles` | id (auth uid), family_id, role `parent`\|`kid`, display_name | RLS: caller's family |
-| `goals` | family_id, title, target_amount > 0, target_date, status | **no balance column** |
-| `chores` | goal_id, title, reward_amount, default_split_goal_pct, requires_photo bool | photo only on visually verifiable chores |
-| `chore_submissions` | chore_id, kid_id, status pending\|approved\|rejected, photo_url, ai_photo_result jsonb, reject_nudge | retry = new row |
-| `ledger_entries` | family_id, kind `goal_credit`\|`pocket_credit`\|`parent_topup`, amount, goal_id?, submission_id?, created_at | **source of truth** |
-| `ai_plans` | goal_id, suggestion jsonb, accepted bool | last accepted feeds weeks-to-goal |
+| `goals` | family_id, kid_id, title, `goal_mode` family_trip\|kid_item, target_amount (cost), target_date, `allow_makeup`, status | cost is the parent's number |
+| `chores` | goal_id, kid_id, title, `cadence` once\|daily\|weekly, `weight_pct` > 0, `requires_photo`, `is_makeup`, `is_bonus` | weights may sum over 100 |
+| `chore_submissions` | chore_id, family_id, kid_id, status pending\|approved\|rejected, photo_url, reject_nudge | retry = new row |
+| `parent_save_entries` | family_id, goal_id, amount > 0, note, created_by | parent's offline money log |
+| `ai_plans` | goal_id, suggestion jsonb (`weekly_parent_save`, weights), accepted | last accepted feeds the home card |
 | `album_items` | goal_id, photo_url, chore_submission_id?, caption?, added_by | deletable by parent |
 
-## Money rules (locked)
+## Progress rules (rev 3, locked)
 
-1. Balances are **computed on read**: `goal_bank = Σ goal_credit + Σ parent_topup (per goal)`; `pocket = Σ pocket_credit` (per family). Demo scale — no caching.
-2. **Overshoot:** a credit that would push goal-bank past `target_amount` credits only up to the target as `goal_credit`; the remainder is written as `pocket_credit` **in the same transaction**.
-3. Progress bar = min(1, goal_bank / target_amount).
-4. Weeks-to-goal card = `max(1, ceil((target − goal_bank) / weekly_topup))` when `weekly_topup > 0`; "top up now" otherwise.
-5. UI copy: in-app ledger only; **parent settles real money offline**. No spend/withdraw product in the POC.
+1. The kid earns **100%** of the goal through chore progress; the parent funds the real cost separately.
+2. Expected instances until `target_date`: once = 1, weekly = N, daily = 7*N (N = ceil days/7, min 1).
+3. `instance_credit_pct = weight_pct / expected_instances`; one approval adds one credit.
+4. Kid bar = min(100, sum of approved credits). A chore never contributes more than its full weight.
+5. Weights may sum **over 100%** (oversubscribe = deliberate slack).
+6. `is_behind_pace`: linear projection of current % to the target date falls short of 100 (equivalently `progress < 100 * weeks_elapsed / weeks_n`).
+7. Approve RPC flips submission status only; **no ledger writes from chore rewards** (rev 2 overshoot-to-pocket is retired from the progress spine).
+8. Makeup chores: `allow_makeup` default false; when on, the parent may add one-time `is_makeup` chores; never automatic.
+9. Kid UI renders percent only. Dollars exist only on parent screens (cost, save cadence, saved-so-far).
 
-Dart implementation lives in `app/lib/services/ledger_math.dart`:
+Dart implementation:
 
 ```dart
-BalanceSummary sumLedger(List<LedgerEntry> entries);
-({double goalCredit, double pocketCredit}) splitCredit({
-  required double amount, required double goalBalance, required double targetAmount,
-});
+// chore_progress_math.dart (pure)
+int weeksRemaining({required DateTime today, required DateTime targetDate});
+int expectedInstances({required String cadence, required int weeksN});
+double instanceCreditPct({required double weightPct, required int expectedInstances});
+double kidProgressPct({required chores, required int weeksN});   // caps at 100
+bool isBehindPace({required double progressPct, required int weeksN, required int weeksElapsed, required double planWeightSum});
+
+// ledger_math.dart (parent planner)
+double suggestedSavePerWeek({required double cost, required int weeksN});  // cost / weeks
+double parentSaveProgress({required double saved, required double cost});  // caps at 1
 ```
 
 ## RLS & storage
 
-- RLS enabled on **all** family-scoped tables; policies match `auth.uid() → profiles.family_id`; role checks where needed (approve/album-delete = parent).
+- RLS on all family-scoped tables incl. `parent_save_entries` (family read, parent insert); policies match `auth.uid() -> profiles.family_id`; role checks where needed (approve, saves, album delete = parent).
 - Storage bucket paths prefixed `family_id/...`; write from kid submit, read from family, delete by parent.
-- Verified in Task 1: a kid session cannot read another family's rows.
+- Verified by `scripts/rls_probe.py`: a kid session cannot read another family's rows.
 
 ## AI surfaces
 
 ### POST /functions/v1/suggest-plan
 
-Input `{ title, targetAmount, targetDate, kidAge }` → `{ weekly_topup, chores: [{title, reward, requires_photo, split_goal_pct}], why }`.
-- With `OPENAI_API_KEY`: LLM generates the plan; prompt demands **plain parent-language "why"**, 4–8 chores, `requires_photo` only on visually verifiable ones.
-- Without a key: **deterministic builder** from amount ÷ weeks (≥4 chores, sensible split percentages, template "why"). Same JSON shape either way; Dart mirror of the fallback is unit-tested.
+Input `{ title, targetAmount, targetDate, kidAge }` -> `{ weekly_parent_save, chores: [{title, cadence, weight_pct, requires_photo, is_makeup}], why }`.
+- With `OPENAI_API_KEY`: LLM generates the plan; the response is validated (weights >= 100, else fallback to deterministic).
+- Without a key: **deterministic builder** (worked-example weights summing to exactly 100, save = cost / weeks). Same JSON shape either way.
 
 ### POST /functions/v1/photo-assist
 
-Input `{ choreTitle, image }` → `{ suggest: approve|reject|abstain, reason }`.
-- Vision prompt only for visually verifiable chores; abstains with a reason otherwise; **parent is always final** — suggestion renders on the approval card, never auto-applies.
+Input `{ choreTitle, image }` -> `{ suggest: approve|reject|abstain, reason }`.
+- Vision prompt only for visually verifiable chores; abstains otherwise; **parent is always final**.
 
 ## Auth & demo UX
 
-- Email/password auth; seeded `parent@demo` / `kid@demo` (passwords documented in README as demo-only).
-- Demo role switch: one session with `activeProfileId` toggle (Parent ↔ Kid) so the video has no login waits.
+- Email/password auth; seeded `parent@demo` / `kid@demo` / `demo1234` (documented as demo-only).
+- Demo role switch: two pre-authenticated clients, one toggle - no login waits in the video.
 
 ## Configuration
 
-- App: `--dart-define=SUPABASE_URL=... SUPABASE_ANON_KEY=...`
-- Functions secrets: `OPENAI_API_KEY` optional — absence must degrade to fallbacks, never crash.
-- Local dev: Supabase CLI via Docker (`supabase start`); iOS simulator reaches `127.0.0.1`. Hosted deploy happens only for the demo video.
+- App: `--dart-define=SUPABASE_URL=... SUPABASE_ANON_KEY=...` (and optional `DEMO_WALK=true` for the simulator walkthrough camera stub)
+- Functions secrets: `OPENAI_API_KEY` optional - absence degrades to fallbacks, never crashes.
+- Local dev: Supabase CLI via Docker (`supabase start`); iOS simulator reaches `127.0.0.1`.
 
 ## Testing
 
-- `ledger_math_test.dart` — splitCredit overshoot + under-target; sumLedger goal vs pocket; progress cap
-- `overshoot_test.dart` — end-to-end approval writes both entries in one transaction
-- `goal_service_test.dart` — deterministic fallback ≥4 chores, `why` non-empty
-- `widget_role_switch_test.dart` — toggle renders Parent Home vs Kid Today
-- RLS check — cross-family read denied for kid session
+- `chore_progress_math_test.dart` - instance credits, Disneyland 40/30/20/10 perfect streak = 100, oversubscribe cap, behind-pace
+- `ledger_math_test.dart` - suggested saves (250/wk worked example), save progress cap
+- `plan_validation_test.dart` - weights >= 100, cadence validity, no makeup in plans, photo rule
+- `overshoot_test.dart` - approval credit previews + submission state machine
+- `goal_service_test.dart` - deterministic fallback shape, weights sum, weekly save
+- `widget_role_switch_test.dart` / `widget_test.dart` - shell renders both roles
+- RLS check - cross-family read denied for kid session

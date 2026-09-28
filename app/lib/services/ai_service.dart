@@ -1,17 +1,22 @@
-/// AI Suggest Plan service.
+/// AI Suggest Plan service (rev 3).
 ///
-/// The edge function (`supabase/functions/suggest-plan`) is the live path;
-/// this module holds the shared shape plus the deterministic fallback that
-/// must behave identically with zero API keys — the hackathon demo always
-/// runs on this path.
+/// The plan is habit-first: chores with cadence + weight (summing to at least
+/// 100%) for the kid, and a parent-only weekly save for the real cost. The
+/// edge function (`supabase/functions/suggest-plan`) is the live path; this
+/// module holds the shared shape plus the deterministic fallback that must
+/// behave identically with zero API keys.
 library;
+
+import 'chore_progress_math.dart';
 
 /// Chore titles that can legitimately require photo proof — things a parent
 /// can verify by looking. Anything time- or trust-based must never demand a
 /// photo ("read a chapter" is an honor-system chore).
 const Set<String> kVisuallyVerifiable = {
-  'Clean the play table',
+  'Make your bed',
   'Wash the dishes',
+  'Fold the laundry',
+  'Clean the play table',
   'Vacuum the living room',
   'Tidy your room',
   'Set and clear the table',
@@ -20,52 +25,57 @@ const Set<String> kVisuallyVerifiable = {
 
 class ChoreSpec {
   final String title;
-  final double reward;
+  final String cadence; // once | daily | weekly
+  final double weightPct;
   final bool requiresPhoto;
-  final int splitGoalPct; // % of reward that goes to the goal bank
+  final bool isMakeup;
 
   const ChoreSpec({
     required this.title,
-    required this.reward,
+    required this.cadence,
+    required this.weightPct,
     required this.requiresPhoto,
-    required this.splitGoalPct,
+    this.isMakeup = false,
   });
 
   Map<String, dynamic> toJson() => {
         'title': title,
-        'reward': reward,
+        'cadence': cadence,
+        'weight_pct': weightPct,
         'requires_photo': requiresPhoto,
-        'split_goal_pct': splitGoalPct,
+        'is_makeup': isMakeup,
       };
 
   static ChoreSpec fromJson(Map<String, dynamic> j) => ChoreSpec(
         title: j['title'] as String,
-        reward: (j['reward'] as num).toDouble(),
+        cadence: j['cadence'] as String,
+        weightPct: (j['weight_pct'] as num).toDouble(),
         requiresPhoto: j['requires_photo'] == true,
-        splitGoalPct: (j['split_goal_pct'] as num).toInt(),
+        isMakeup: j['is_makeup'] == true,
       );
 }
 
 class AiPlanSuggestion {
-  final double weeklyTopup;
+  final double weeklyParentSave;
   final List<ChoreSpec> chores;
   final String why;
 
   const AiPlanSuggestion({
-    required this.weeklyTopup,
+    required this.weeklyParentSave,
     required this.chores,
     required this.why,
   });
 
+  double get weightSum => chores.fold(0, (s, c) => s + c.weightPct);
+
   Map<String, dynamic> toJson() => {
-        'weekly_topup': weeklyTopup,
+        'weekly_parent_save': weeklyParentSave,
         'chores': chores.map((c) => c.toJson()).toList(),
         'why': why,
       };
 
-  static AiPlanSuggestion fromJson(Map<String, dynamic> j) =>
-      AiPlanSuggestion(
-        weeklyTopup: (j['weekly_topup'] as num).toDouble(),
+  static AiPlanSuggestion fromJson(Map<String, dynamic> j) => AiPlanSuggestion(
+        weeklyParentSave: (j['weekly_parent_save'] as num).toDouble(),
         chores: (j['chores'] as List)
             .map((c) => ChoreSpec.fromJson(Map<String, dynamic>.from(c)))
             .toList(),
@@ -74,32 +84,28 @@ class AiPlanSuggestion {
 }
 
 /// Whole weeks from today until [target]; at least 1.
-int weeksUntil(DateTime target) {
-  final days = target.difference(DateTime.now()).inDays;
-  return (days / 7).ceil().clamp(1, 520);
-}
+int weeksUntil(DateTime target) =>
+    weeksRemaining(today: DateTime.now(), targetDate: target);
 
 double _round25(double v) => (v * 4).roundToDouble() / 4;
 
 const List<ChoreSpec> _kidChores = [
-  ChoreSpec(title: 'Clean the play table', reward: 5, requiresPhoto: true, splitGoalPct: 80),
-  ChoreSpec(title: 'Read for 20 minutes', reward: 3, requiresPhoto: false, splitGoalPct: 100),
-  ChoreSpec(title: 'Wash the dishes', reward: 4, requiresPhoto: true, splitGoalPct: 80),
-  ChoreSpec(title: 'Make your bed', reward: 2, requiresPhoto: false, splitGoalPct: 100),
-  ChoreSpec(title: 'Vacuum the living room', reward: 5, requiresPhoto: true, splitGoalPct: 60),
-  ChoreSpec(title: 'Take out the recycling', reward: 3, requiresPhoto: false, splitGoalPct: 100),
+  ChoreSpec(title: 'Make your bed', cadence: 'daily', weightPct: 40, requiresPhoto: true),
+  ChoreSpec(title: 'Wash the dishes', cadence: 'daily', weightPct: 30, requiresPhoto: true),
+  ChoreSpec(title: 'Fold the laundry', cadence: 'weekly', weightPct: 20, requiresPhoto: true),
+  ChoreSpec(title: 'Plan the park itinerary', cadence: 'once', weightPct: 10, requiresPhoto: false),
 ];
 
 const List<ChoreSpec> _littleKidChores = [
-  ChoreSpec(title: 'Tidy your room', reward: 4, requiresPhoto: true, splitGoalPct: 80),
-  ChoreSpec(title: 'Set and clear the table', reward: 3, requiresPhoto: true, splitGoalPct: 80),
-  ChoreSpec(title: 'Read for 20 minutes', reward: 3, requiresPhoto: false, splitGoalPct: 100),
-  ChoreSpec(title: 'Make your bed', reward: 2, requiresPhoto: false, splitGoalPct: 100),
-  ChoreSpec(title: 'Take out the recycling', reward: 3, requiresPhoto: false, splitGoalPct: 100),
+  ChoreSpec(title: 'Tidy your room', cadence: 'daily', weightPct: 40, requiresPhoto: true),
+  ChoreSpec(title: 'Set and clear the table', cadence: 'daily', weightPct: 30, requiresPhoto: true),
+  ChoreSpec(title: 'Fold the laundry', cadence: 'weekly', weightPct: 20, requiresPhoto: true),
+  ChoreSpec(title: 'Plan the week together', cadence: 'once', weightPct: 10, requiresPhoto: false),
 ];
 
-/// Deterministic save plan: parent tops up 30% weekly, chores cover the rest.
-/// No API key, no randomness — same inputs always give the same plan.
+/// Deterministic habit plan: worked-example weights summing to exactly 100,
+/// plus the parent's weekly save for the real cost. No API key, no randomness
+/// — same inputs always give the same plan.
 AiPlanSuggestion buildDeterministicPlan({
   required String title,
   required double targetAmount,
@@ -107,28 +113,21 @@ AiPlanSuggestion buildDeterministicPlan({
   required int kidAge,
 }) {
   final w = weeks < 1 ? 1 : weeks;
-  final weeklyTotal = targetAmount / w;
-  final weeklyTopup = _round25(weeklyTotal * 0.30);
-  final choreWeeklyNeeded = weeklyTotal - weeklyTopup;
+  final weeklySave = _round25(targetAmount / w);
 
   final catalog = kidAge <= 7 ? _littleKidChores : _kidChores;
-  final baseSum = catalog.fold<double>(0, (s, c) => s + c.reward);
-  final scale = baseSum > 0 ? choreWeeklyNeeded / baseSum : 1.0;
+  final weightSum = catalog.fold<double>(0, (s, c) => s + c.weightPct);
+  final who = kidAge <= 7 ? 'your little one' : 'your kid';
 
-  final chores = catalog
-      .map((c) => ChoreSpec(
-            title: c.title,
-            reward: _round25(c.reward * scale).clamp(0.50, 50.0),
-            requiresPhoto: c.requiresPhoto && kVisuallyVerifiable.contains(c.title),
-            splitGoalPct: c.splitGoalPct,
-          ))
-      .toList();
+  final why = '"$title" costs about \$$targetAmount. Setting aside '
+      '\$$weeklySave a week for $w weeks covers the full cost before the date. '
+      'Meanwhile $who earns the goal by keeping the habits going: the weight '
+      'list adds up to $weightSum percent, so a steady streak lands exactly '
+      'at 100 percent by the deadline.';
 
-  final choreWeekly = chores.fold<double>(0, (s, c) => s + c.reward);
-  final why = 'Over $w weeks, "$title" needs \$$targetAmount. '
-      'Putting in \$${weeklyTopup.toStringAsFixed(0)} a week from your own money, plus about '
-      '\$${choreWeekly.toStringAsFixed(0)} a week that ${kidAge <= 7 ? 'your little one' : 'your kid'} earns from these chores, '
-      'gets there right on time — no end-of-plan scramble. Chores with a camera icon just need a quick photo so you can see the result yourself.';
-
-  return AiPlanSuggestion(weeklyTopup: weeklyTopup, chores: chores, why: why);
+  return AiPlanSuggestion(
+    weeklyParentSave: weeklySave,
+    chores: catalog.toList(),
+    why: why,
+  );
 }

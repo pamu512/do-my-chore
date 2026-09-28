@@ -4,38 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/demo_auth.dart';
 import '../models/role.dart';
-import 'ledger_math.dart';
 
 /// Allowed submission status transitions. A rejected row is never flipped
 /// back to pending — a retry always inserts a new submission row.
 const Map<String, List<String>> kAllowedTransitions = {
   'pending': ['approved', 'rejected'],
 };
-
-/// Credit split for an approved chore: reward is split by the chore's goal
-/// percentage, then the goal share is capped at the target — overshoot flows
-/// to pocket. Same rule as [splitCredit], applied to the reward split.
-({double goalCredit, double pocketCredit}) approveSplit({
-  required double reward,
-  required int splitGoalPct,
-  required double goalBank,
-  required double targetAmount,
-}) {
-  final goalShare = reward * (splitGoalPct.clamp(0, 100) / 100.0);
-  final pocketShare = reward - goalShare;
-  final capped = splitCredit(
-    amount: goalShare,
-    goalBalance: goalBank,
-    targetAmount: targetAmount,
-  );
-  return (
-    goalCredit: capped.goalCredit,
-    pocketCredit: _money(_cents(pocketShare) + _cents(capped.pocketCredit)),
-  );
-}
-
-int _cents(double v) => (v * 100).round();
-double _money(int c) => c / 100.0;
 
 /// A kid may only submit with a photo when the chore demands one — and a
 /// photo chore without a photo is blocked client-side AND at submit time.
@@ -109,9 +83,8 @@ class ChoreService {
     return _parent.storage.from('chore-photos').createSignedUrl(storagePath, 3600);
   }
 
-  /// Parent approves: submission flips to approved and BOTH ledger entries
-  /// (goal + pocket overshoot) are written by one atomic DB function, so the
-  /// money rule cannot tear.
+  /// Parent approves: flips the submission to approved. Progress is derived
+  /// from approved submissions x instance credits; no ledger writes here.
   Future<void> approveSubmission(String submissionId) async {
     await _parent.rpc('approve_chore_submission', params: {
       'p_submission_id': submissionId,

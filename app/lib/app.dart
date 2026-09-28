@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/demo_auth.dart';
+import 'core/dmc_theme.dart';
 import 'core/supabase_config.dart';
 import 'features/shell/role_switch_shell.dart';
 
@@ -27,7 +28,7 @@ class _DoMyChoreAppState extends State<DoMyChoreApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Do My Chore',
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF4F6DF5), useMaterial3: true),
+      theme: Dmc.theme(false),
       home: FutureBuilder<RoleClients?>(
         future: _connect,
         builder: (context, snap) {
