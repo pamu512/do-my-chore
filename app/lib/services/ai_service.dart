@@ -7,6 +7,7 @@
 /// behave identically with zero API keys.
 library;
 
+import 'chore_library.dart';
 import 'chore_progress_math.dart';
 
 /// Chore titles that can legitimately require photo proof — things a parent
@@ -29,6 +30,7 @@ class ChoreSpec {
   final double weightPct;
   final bool requiresPhoto;
   final bool isMakeup;
+  final String? libraryChoreId;
 
   const ChoreSpec({
     required this.title,
@@ -36,6 +38,7 @@ class ChoreSpec {
     required this.weightPct,
     required this.requiresPhoto,
     this.isMakeup = false,
+    this.libraryChoreId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -44,15 +47,23 @@ class ChoreSpec {
         'weight_pct': weightPct,
         'requires_photo': requiresPhoto,
         'is_makeup': isMakeup,
+        if (libraryChoreId != null) 'library_chore_id': libraryChoreId,
       };
 
-  static ChoreSpec fromJson(Map<String, dynamic> j) => ChoreSpec(
-        title: j['title'] as String,
-        cadence: j['cadence'] as String,
-        weightPct: (j['weight_pct'] as num).toDouble(),
-        requiresPhoto: j['requires_photo'] == true,
-        isMakeup: j['is_makeup'] == true,
-      );
+  static ChoreSpec fromJson(Map<String, dynamic> j) {
+    final rawId = j['library_chore_id'] as String?;
+    final fromTitle = libraryHabitByExactTitle(j['title'] as String);
+    return ChoreSpec(
+      title: j['title'] as String,
+      cadence: j['cadence'] as String,
+      weightPct: (j['weight_pct'] as num).toDouble(),
+      requiresPhoto: j['requires_photo'] == true,
+      isMakeup: j['is_makeup'] == true,
+      libraryChoreId: (rawId != null && libraryHabitById(rawId) != null)
+          ? rawId
+          : fromTitle?.id,
+    );
+  }
 }
 
 class AiPlanSuggestion {
@@ -90,17 +101,57 @@ int weeksUntil(DateTime target) =>
 double _round25(double v) => (v * 4).roundToDouble() / 4;
 
 const List<ChoreSpec> _kidChores = [
-  ChoreSpec(title: 'Make your bed', cadence: 'daily', weightPct: 40, requiresPhoto: true),
-  ChoreSpec(title: 'Wash the dishes', cadence: 'daily', weightPct: 30, requiresPhoto: true),
-  ChoreSpec(title: 'Fold the laundry', cadence: 'weekly', weightPct: 20, requiresPhoto: true),
-  ChoreSpec(title: 'Plan the park itinerary', cadence: 'once', weightPct: 10, requiresPhoto: false),
+  ChoreSpec(
+      title: 'Make your bed',
+      cadence: 'daily',
+      weightPct: 40,
+      requiresPhoto: true,
+      libraryChoreId: 'make-your-bed'),
+  ChoreSpec(
+      title: 'Wash the dishes',
+      cadence: 'daily',
+      weightPct: 30,
+      requiresPhoto: true,
+      libraryChoreId: 'wash-the-dishes'),
+  ChoreSpec(
+      title: 'Fold the laundry',
+      cadence: 'weekly',
+      weightPct: 20,
+      requiresPhoto: true,
+      libraryChoreId: 'fold-the-laundry'),
+  ChoreSpec(
+      title: 'Plan the park itinerary',
+      cadence: 'once',
+      weightPct: 10,
+      requiresPhoto: false,
+      libraryChoreId: 'plan-the-park-itinerary'),
 ];
 
 const List<ChoreSpec> _littleKidChores = [
-  ChoreSpec(title: 'Tidy your room', cadence: 'daily', weightPct: 40, requiresPhoto: true),
-  ChoreSpec(title: 'Set and clear the table', cadence: 'daily', weightPct: 30, requiresPhoto: true),
-  ChoreSpec(title: 'Fold the laundry', cadence: 'weekly', weightPct: 20, requiresPhoto: true),
-  ChoreSpec(title: 'Plan the week together', cadence: 'once', weightPct: 10, requiresPhoto: false),
+  ChoreSpec(
+      title: 'Tidy your room',
+      cadence: 'daily',
+      weightPct: 40,
+      requiresPhoto: true,
+      libraryChoreId: 'tidy-your-room'),
+  ChoreSpec(
+      title: 'Set and clear the table',
+      cadence: 'daily',
+      weightPct: 30,
+      requiresPhoto: true,
+      libraryChoreId: 'set-and-clear-the-table'),
+  ChoreSpec(
+      title: 'Fold the laundry',
+      cadence: 'weekly',
+      weightPct: 20,
+      requiresPhoto: true,
+      libraryChoreId: 'fold-the-laundry'),
+  ChoreSpec(
+      title: 'Plan the week together',
+      cadence: 'once',
+      weightPct: 10,
+      requiresPhoto: false,
+      libraryChoreId: 'plan-the-week-together'),
 ];
 
 /// Deterministic habit plan: worked-example weights summing to exactly 100,

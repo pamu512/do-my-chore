@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/demo_auth.dart';
 import '../models/role.dart';
 import 'ai_service.dart';
+import 'chore_library.dart';
 
 /// Pure validation: a chore may demand photo proof only if a parent can
 /// verify it by looking; weights must be positive and the plan must cover
@@ -24,6 +25,10 @@ String? validatePlan(AiPlanSuggestion plan) {
     }
     if (c.requiresPhoto && !kVisuallyVerifiable.contains(c.title)) {
       return 'Chore "${c.title}" cannot require a photo - it is not visually verifiable';
+    }
+    if (c.libraryChoreId == null ||
+        libraryHabitById(c.libraryChoreId!) == null) {
+      return 'Chore "${c.title}" must come from the chore library';
     }
     weightSum += c.weightPct;
   }
@@ -92,6 +97,7 @@ class GoalService {
                     'cadence': c.cadence,
                     'weight_pct': c.weightPct,
                     'requires_photo': c.requiresPhoto,
+                    'library_chore_id': ?c.libraryChoreId,
                   })
               .toList(),
         );

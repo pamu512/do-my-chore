@@ -15,6 +15,10 @@ class KidChoreCard {
   final String? nudge; // rejected-with-nudge → retry prompt
   final String? latestStatus; // pending | approved | rejected | null
   final DateTime? latestCreatedAt;
+  final String? libraryChoreId;
+  final List<String> sharedChoreIds;
+  final List<({double weightPct, String cadence, DateTime? latestAt})>
+      creditMembers;
 
   const KidChoreCard({
     required this.id,
@@ -27,7 +31,13 @@ class KidChoreCard {
     this.nudge,
     this.latestStatus,
     this.latestCreatedAt,
+    this.libraryChoreId,
+    this.sharedChoreIds = const [],
+    this.creditMembers = const [],
   });
+
+  int get sharedGoalCount =>
+      sharedChoreIds.isEmpty ? 1 : sharedChoreIds.length;
 
   KidRowKind rowKind(DateTime now) => kidRowKind(
         latestStatus: latestStatus,
@@ -55,6 +65,8 @@ class PendingApproval {
   final double weightPct;
   final bool requiresPhoto;
   final String? photoUrl;
+  final String? libraryChoreId;
+  final List<String> sharedSubmissionIds;
 
   const PendingApproval({
     required this.submissionId,
@@ -63,7 +75,12 @@ class PendingApproval {
     required this.weightPct,
     required this.requiresPhoto,
     this.photoUrl,
+    this.libraryChoreId,
+    this.sharedSubmissionIds = const [],
   });
+
+  int get sharedGoalCount =>
+      sharedSubmissionIds.isEmpty ? 1 : sharedSubmissionIds.length;
 }
 
 extension ChoreServiceQueries on ChoreService {
@@ -74,6 +91,7 @@ extension ChoreServiceQueries on ChoreService {
     final rows = await kidClient
         .from('chores')
         .select('id, title, cadence, weight_pct, requires_photo, is_makeup, is_bonus, '
+            'library_chore_id, '
             'chore_submissions(status, reject_nudge, created_at), goals!inner(status)')
         .eq('archived', false)
         .eq('goals.status', 'active')
@@ -106,6 +124,7 @@ extension ChoreServiceQueries on ChoreService {
         nudge: nudge,
         latestStatus: latestStatus,
         latestCreatedAt: latestCreatedAt,
+        libraryChoreId: row['library_chore_id'] as String?,
       );
     }).toList();
   }
@@ -115,7 +134,7 @@ extension ChoreServiceQueries on ChoreService {
   Future<List<PendingApproval>> pendingForParent() async {
     final rows = await parentClient
         .from('chore_submissions')
-        .select('id, photo_url, chore_id, chores(title, cadence, weight_pct, requires_photo)')
+        .select('id, photo_url, chore_id, chores(title, cadence, weight_pct, requires_photo, library_chore_id)')
         .eq('status', 'pending')
         .order('created_at');
     return rows.map<PendingApproval>((row) {
@@ -127,6 +146,7 @@ extension ChoreServiceQueries on ChoreService {
         weightPct: (chore['weight_pct'] as num).toDouble(),
         requiresPhoto: chore['requires_photo'] == true,
         photoUrl: row['photo_url'] as String?,
+        libraryChoreId: chore['library_chore_id'] as String?,
       );
     }).toList();
   }
@@ -293,4 +313,140 @@ extension GoalServiceQueries on GoalService {
     }
     return views;
   }
+}
+
+/// One visible Today row per library id. Null library id never merges.
+List<KidChoreCard> collapseTodayByLibraryId(
+  List<KidChoreCard> chores, {
+  required DateTime now,
+}) {
+  final groups = <String, List<KidChoreCard>>{};
+  for (final c in chores) {
+    final id = c.libraryChoreId;
+    if (id == null || id.isEmpty) continue;
+    groups.putIfAbsent(id, () => []).add(c);
+  }
+  final seen = <String>{};
+  final out = <KidChoreCard>[];
+  for (final c in chores) {
+    final id = c.libraryChoreId;
+    if (id == null || id.isEmpty) {
+      out.add(c);
+      continue;
+    }
+    if (!seen.add(id)) continue;
+    final members = groups[id]!;
+    out.add(members.length == 1 ? members.first : _mergeToday(members, id, now));
+  }
+  return out;
+}
+
+KidChoreCard _mergeToday(
+  List<KidChoreCard> members,
+  String libraryId,
+  DateTime now,
+) {
+  var lead = members.first;
+  var leadRank = _kindRank(lead.rowKind(now));
+  for (final m in members.skip(1)) {
+    final rank = _kindRank(m.rowKind(now));
+    if (rank < leadRank) {
+      lead = m;
+      leadRank = rank;
+    }
+  }
+  return KidChoreCard(
+    id: lead.id,
+    title: lead.title,
+    cadence: lead.cadence,
+    weightPct: lead.weightPct,
+    requiresPhoto: members.any((m) => m.requiresPhoto),
+    isMakeup: members.every((m) => m.isMakeup),
+    isBonus: members.every((m) => m.isBonus),
+    nudge: lead.nudge,
+    latestStatus: lead.latestStatus,
+    latestCreatedAt: lead.latestCreatedAt,
+    libraryChoreId: libraryId,
+    sharedChoreIds: [for (final m in members) m.id],
+    creditMembers: [
+      for (final m in members)
+        (
+          weightPct: m.weightPct,
+          cadence: m.cadence,
+          latestAt: m.latestCreatedAt,
+        )
+    ],
+  );
+}
+
+int _kindRank(KidRowKind k) {
+  switch (k) {
+    case KidRowKind.open:
+      return 0;
+    case KidRowKind.nextTry:
+      return 1;
+    case KidRowKind.sent:
+      return 2;
+  }
+}
+
+List<String> submissionChoreIds(KidChoreCard c) {
+  if (c.sharedChoreIds.isEmpty) return [c.id];
+  return [for (final id in {c.id, ...c.sharedChoreIds}) id];
+}
+
+List<({double weightPct, String cadence, DateTime? latestAt})>
+    slicesForDayDone(KidChoreCard c) {
+  if (c.creditMembers.isNotEmpty) return c.creditMembers;
+  return [
+    (
+      weightPct: c.weightPct,
+      cadence: c.cadence,
+      latestAt: c.latestCreatedAt,
+    )
+  ];
+}
+
+List<PendingApproval> collapsePendingByLibraryId(List<PendingApproval> items) {
+  final groups = <String, List<PendingApproval>>{};
+  for (final p in items) {
+    final id = p.libraryChoreId;
+    if (id == null || id.isEmpty) continue;
+    groups.putIfAbsent(id, () => []).add(p);
+  }
+  final seen = <String>{};
+  final out = <PendingApproval>[];
+  for (final p in items) {
+    final id = p.libraryChoreId;
+    if (id == null || id.isEmpty) {
+      out.add(p);
+      continue;
+    }
+    if (!seen.add(id)) continue;
+    final members = groups[id]!;
+    out.add(members.length == 1 ? members.first : _mergePending(members, id));
+  }
+  return out;
+}
+
+PendingApproval _mergePending(List<PendingApproval> members, String libraryId) {
+  final lead = members.first;
+  return PendingApproval(
+    submissionId: lead.submissionId,
+    choreTitle: lead.choreTitle,
+    cadence: lead.cadence,
+    weightPct: lead.weightPct,
+    requiresPhoto: members.any((m) => m.requiresPhoto),
+    photoUrl: lead.photoUrl ??
+        members
+            .map((m) => m.photoUrl)
+            .firstWhere((u) => u != null, orElse: () => null),
+    libraryChoreId: libraryId,
+    sharedSubmissionIds: [for (final m in members) m.submissionId],
+  );
+}
+
+List<String> clusterSubmissionIds(PendingApproval p) {
+  if (p.sharedSubmissionIds.isEmpty) return [p.submissionId];
+  return [for (final id in {p.submissionId, ...p.sharedSubmissionIds}) id];
 }

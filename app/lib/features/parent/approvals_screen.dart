@@ -36,7 +36,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   Future<void> _refresh() async {
     try {
-      final pending = await widget.service.pendingForParent();
+      final pending = collapsePendingByLibraryId(
+        await widget.service.pendingForParent(),
+      );
       if (mounted) {
         setState(() {
           _pending = pending;
@@ -58,12 +60,19 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   final Set<String> _decided = {};
 
   Future<void> _approve(PendingApproval p) async {
-    setState(() => _decided.add(p.submissionId));
+    for (final id in clusterSubmissionIds(p)) {
+      _decided.add(id);
+    }
+    setState(() {});
     try {
       await widget.service.approveSubmission(p.submissionId);
     } catch (e) {
       if (mounted) {
-        setState(() => _decided.remove(p.submissionId));
+        setState(() {
+          for (final id in clusterSubmissionIds(p)) {
+            _decided.remove(id);
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Could not approve: $e')));
       }
@@ -95,12 +104,19 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     );
     if (note == null || !mounted) return;
     final nudge = rejectNudge(choreTitle: p.choreTitle, parentNote: note);
-    setState(() => _decided.add(p.submissionId));
+    for (final id in clusterSubmissionIds(p)) {
+      _decided.add(id);
+    }
+    setState(() {});
     try {
-      await widget.service.rejectSubmission(p.submissionId, nudge);
+      await widget.service.rejectSubmissions(clusterSubmissionIds(p), nudge);
     } catch (e) {
       if (mounted) {
-        setState(() => _decided.remove(p.submissionId));
+        setState(() {
+          for (final id in clusterSubmissionIds(p)) {
+            _decided.remove(id);
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Could not send back: $e')));
       }
@@ -120,6 +136,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   String _creditPreview(PendingApproval p) {
+    if (p.sharedGoalCount > 1) {
+      return 'Credits ${p.sharedGoalCount} goals';
+    }
     if (widget.weeksN == null) return '+credit';
     final expected =
         expectedInstances(cadence: p.cadence, weeksN: widget.weeksN!);

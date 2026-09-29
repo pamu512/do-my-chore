@@ -46,15 +46,15 @@ insert into public.goals (id, family_id, kid_id, title, target_amount, target_da
 
 -- chores: spec worked example — weights sum to exactly 100%
 -- bed 40 daily, dishes 30 daily, laundry 20 weekly, itinerary 10 once
-insert into public.chores (id, goal_id, kid_id, title, cadence, weight_pct, requires_photo, is_makeup, is_bonus) values
+insert into public.chores (id, goal_id, kid_id, title, cadence, weight_pct, requires_photo, is_makeup, is_bonus, library_chore_id) values
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b1',
-   '00000000-0000-0000-0000-0000000000a2', 'Make your bed', 'daily', 40.00, true, false, false),
+   '00000000-0000-0000-0000-0000000000a2', 'Make your bed', 'daily', 40.00, true, false, false, 'make-your-bed'),
   ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000b1',
-   '00000000-0000-0000-0000-0000000000a2', 'Wash the dishes', 'daily', 30.00, true, false, false),
+   '00000000-0000-0000-0000-0000000000a2', 'Wash the dishes', 'daily', 30.00, true, false, false, 'wash-the-dishes'),
   ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-0000000000b1',
-   '00000000-0000-0000-0000-0000000000a2', 'Fold the laundry', 'weekly', 20.00, true, false, false),
+   '00000000-0000-0000-0000-0000000000a2', 'Fold the laundry', 'weekly', 20.00, true, false, false, 'fold-the-laundry'),
   ('00000000-0000-0000-0000-0000000000c4', '00000000-0000-0000-0000-0000000000b1',
-   '00000000-0000-0000-0000-0000000000a2', 'Plan the park itinerary', 'once', 10.00, false, false, false);
+   '00000000-0000-0000-0000-0000000000a2', 'Plan the park itinerary', 'once', 10.00, false, false, 'plan-the-park-itinerary');
 
 -- accepted AI plan: parent save cadence + kid weights (no dollar rewards)
 insert into public.ai_plans (goal_id, family_id, suggestion, accepted, source) values

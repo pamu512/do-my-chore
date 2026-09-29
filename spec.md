@@ -15,7 +15,8 @@
 | `families` | id | one seeded demo family |
 | `profiles` | id (auth uid), family_id, role `parent`\|`kid`, display_name | RLS: caller's family |
 | `goals` | family_id, kid_id, title, `goal_mode` family_trip\|kid_item, target_amount (cost), target_date, `allow_makeup`, status | cost is the parent's number |
-| `chores` | goal_id, kid_id, title, `cadence` once\|daily\|weekly, `weight_pct` > 0, `requires_photo`, `is_makeup`, `is_bonus` | weights may sum over 100 |
+| `chore_library` | id (stable text slug), title, cadence, requires_photo, min_age, max_age | age-keyed catalog |
+| `chores` | goal_id, kid_id, title, `cadence` once\|daily\|weekly, `weight_pct` > 0, `requires_photo`, `is_makeup`, `is_bonus`, `library_chore_id` nullable | weights may sum over 100; share by library id only |
 | `chore_submissions` | chore_id, family_id, kid_id, status pending\|approved\|rejected, photo_url, reject_nudge | retry = new row |
 | `parent_save_entries` | family_id, goal_id, amount > 0, note, created_by | parent's offline money log |
 | `ai_plans` | goal_id, suggestion jsonb (`weekly_parent_save`, weights), accepted | last accepted feeds the home card |
@@ -58,8 +59,9 @@ double parentSaveProgress({required double saved, required double cost});  // ca
 
 ### POST /functions/v1/suggest-plan
 
-Input `{ title, targetAmount, targetDate, kidAge }` -> `{ weekly_parent_save, chores: [{title, cadence, weight_pct, requires_photo, is_makeup}], why }`.
-- With `OPENAI_API_KEY`: LLM generates the plan; the response is validated (weights >= 100, else fallback to deterministic).
+Input `{ title, targetAmount, targetDate, kidAge }` -> `{ weekly_parent_save, chores: [{library_chore_id, title, cadence, weight_pct, requires_photo, is_makeup}], why }`.
+- Chores MUST come from `chore_library` (stable catalog ids). Same habit → same id. Unknown id falls back to exact title match, else deterministic.
+- With `OPENAI_API_KEY`: LLM generates the plan from the age-filtered library; the response is validated (weights >= 100, else fallback to deterministic).
 - Without a key: **deterministic builder** (worked-example weights summing to exactly 100, save = cost / weeks). Same JSON shape either way.
 
 ### POST /functions/v1/photo-assist
