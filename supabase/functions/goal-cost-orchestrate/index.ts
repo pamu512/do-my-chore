@@ -6,20 +6,30 @@
 //   NEBIUS_API_KEY  → Token Factory + Nemotron
 //   OPENAI_API_KEY  → gpt-4o-mini
 //   TAVILY_API_KEY  → deal search; skip search if unset
+//
+// TODO: require parent JWT (gateway / function verify)
+// TODO: per-family rate limit on LLM + Tavily
 
 import "https://deno.land/std@0.224.0/http/server.ts";
 import { CORS } from "../_shared/cors.ts";
 import { searchDeals } from "../_shared/deals.ts";
 import {
   allowedPromptFields,
-  buildEstimatePrompt,
   inferGoalMode,
+  inferSlots,
   readGoalText,
   readTargetAmount,
   resolveEstimate,
   resolveWeeks,
 } from "../_shared/goal_estimate.ts";
 import { chatCompletions } from "../_shared/llm.ts";
+import {
+  buildSafeDealQuery,
+  sanitizeGoalText,
+  skipLlmForGoal,
+  systemGuardrailsMessage,
+  wrapUserGoalPayload,
+} from "../_shared/prompt_guard.ts";
 
 async function llmOrDeterministicEstimate(input: {
   title: string;
@@ -38,10 +48,16 @@ async function llmOrDeterministicEstimate(input: {
     json: true,
     temperature: 0.3,
     capability: "text",
-    messages: [{
-      role: "user",
-      content: buildEstimatePrompt(fields, input.enteredCost),
-    }],
+    messages: [
+      { role: "system", content: systemGuardrailsMessage() },
+      {
+        role: "user",
+        content: wrapUserGoalPayload(fields, {
+          task: "estimate",
+          parentPriorUsd: input.enteredCost,
+        }),
+      },
+    ],
   });
   return resolveEstimate({
     title: input.title,
@@ -57,21 +73,26 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     const body = await req.json() as Record<string, unknown>;
-    const title = readGoalText(body);
+    const sanitized = sanitizeGoalText(readGoalText(body));
+    const title = sanitized.empty ? "Goal" : sanitized.text;
     const enteredCost = readTargetAmount(body);
     const weeks = resolveWeeks({ targetDate: body.targetDate, goalText: title });
     const goalMode = inferGoalMode(title, body.goalMode);
     const kidAge = Number(body.kidAge) > 0 ? Number(body.kidAge) : 8;
-    const estimate = await llmOrDeterministicEstimate({
-      title,
-      enteredCost,
-      weeks,
-      goalMode,
-      kidAge,
-    });
+    const slots = inferSlots(title, body.goalMode);
+    const skipLlm = skipLlmForGoal(title);
+    const estimate = skipLlm
+      ? resolveEstimate({ title, enteredCost, weeks, goalMode })
+      : await llmOrDeterministicEstimate({
+        title,
+        enteredCost,
+        weeks,
+        goalMode,
+        kidAge,
+      });
     const weekly = estimate.likely / weeks;
     const searched = await searchDeals(
-      `best current price for ${title} ${goalMode === "family_trip" ? "family trip tickets hotel" : "to buy"} under $${estimate.likely}`,
+      buildSafeDealQuery(slots, goalMode, estimate.likely),
       estimate.likely,
     );
     return Response.json({

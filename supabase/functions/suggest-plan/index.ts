@@ -6,15 +6,15 @@
 //   1. NEBIUS_API_KEY → Token Factory + Nemotron
 //   2. OPENAI_API_KEY → gpt-4o-mini
 //   3. else deterministic builder (same JSON shape)
+//
+// TODO: require parent JWT (gateway / function verify)
+// TODO: per-family rate limit on LLM + Tavily
 
 import "https://deno.land/std@0.224.0/http/server.ts";
 import { CORS } from "../_shared/cors.ts";
 import { searchDeals } from "../_shared/deals.ts";
 import {
   allowedPromptFields,
-  buildEstimatePrompt,
-  buildPlanPrompt,
-  resolveLibraryChore,
   goalFirstResponse,
   inferSlots,
   readGoalText,
@@ -24,6 +24,14 @@ import {
   type ChoreSpec,
 } from "../_shared/goal_estimate.ts";
 import { chatCompletions, parseJsonObject } from "../_shared/llm.ts";
+import {
+  buildSafeDealQuery,
+  sanitizeGoalText,
+  skipLlmForGoal,
+  systemGuardrailsMessage,
+  validatePlanOutput,
+  wrapUserGoalPayload,
+} from "../_shared/prompt_guard.ts";
 
 interface Plan {
   weekly_parent_save: number;
@@ -77,24 +85,16 @@ async function buildLlmPlan(
     json: true,
     temperature: 0.4,
     capability: "text",
-    messages: [{
-      role: "user",
-      content: buildPlanPrompt(fields, targetAmount),
-    }],
+    messages: [
+      { role: "system", content: systemGuardrailsMessage() },
+      {
+        role: "user",
+        content: wrapUserGoalPayload(fields, { task: "plan", costUsd: targetAmount }),
+      },
+    ],
   });
   if (!result) return fallback;
-  const parsed = parseJsonObject(result.text) as Plan | null;
-  if (!parsed?.chores?.length || !parsed.why) return fallback;
-  const resolved = parsed.chores.slice(0, 8).map(resolveLibraryChore);
-  if (resolved.some((c) => c == null)) return fallback;
-  const chores = resolved as ChoreSpec[];
-  const weightSum = chores.reduce((s, c) => s + (Number(c.weight_pct) || 0), 0);
-  if (weightSum + 1e-9 < 100) return fallback;
-  return {
-    weekly_parent_save: Number(parsed.weekly_parent_save) || fallback.weekly_parent_save,
-    chores,
-    why: parsed.why,
-  };
+  return validatePlanOutput(parseJsonObject(result.text), fallback) ?? fallback;
 }
 
 async function buildLlmEstimate(input: {
@@ -114,10 +114,16 @@ async function buildLlmEstimate(input: {
     json: true,
     temperature: 0.3,
     capability: "text",
-    messages: [{
-      role: "user",
-      content: buildEstimatePrompt(fields, input.enteredCost),
-    }],
+    messages: [
+      { role: "system", content: systemGuardrailsMessage() },
+      {
+        role: "user",
+        content: wrapUserGoalPayload(fields, {
+          task: "estimate",
+          parentPriorUsd: input.enteredCost,
+        }),
+      },
+    ],
   });
   return resolveEstimate({
     title: input.title,
@@ -133,18 +139,27 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     const body = await req.json() as Record<string, unknown>;
-    const title = readGoalText(body);
+    const sanitized = sanitizeGoalText(readGoalText(body));
+    const title = sanitized.empty ? "Goal" : sanitized.text;
     const enteredCost = readTargetAmount(body);
     const weeks = resolveWeeks({ targetDate: body.targetDate, goalText: title });
     const kidAge = Number(body.kidAge) > 0 ? Number(body.kidAge) : 8;
     const slots = inferSlots(title, body.goalMode);
-    const estimate = await buildLlmEstimate({
-      title,
-      enteredCost,
-      weeks,
-      goalMode: slots.goal_mode,
-      kidAge,
-    });
+    const skipLlm = skipLlmForGoal(title);
+    const estimate = skipLlm
+      ? resolveEstimate({
+        title,
+        enteredCost,
+        weeks,
+        goalMode: slots.goal_mode,
+      })
+      : await buildLlmEstimate({
+        title,
+        enteredCost,
+        weeks,
+        goalMode: slots.goal_mode,
+        kidAge,
+      });
     const planAmount = enteredCost ?? estimate.likely;
     const fields = allowedPromptFields({
       goalText: title,
@@ -152,9 +167,11 @@ Deno.serve(async (req) => {
       weeks,
       goalMode: slots.goal_mode,
     });
-    const plan = await buildLlmPlan(fields, planAmount);
+    const plan = skipLlm
+      ? buildDeterministicPlan(title, planAmount, weeks, kidAge)
+      : await buildLlmPlan(fields, planAmount);
     const searched = await searchDeals(
-      `best current price for ${title} ${slots.goal_mode === "family_trip" ? "family trip tickets hotel" : "to buy"} under $${estimate.likely}`,
+      buildSafeDealQuery(slots, slots.goal_mode, estimate.likely),
       estimate.likely,
     );
     return Response.json(

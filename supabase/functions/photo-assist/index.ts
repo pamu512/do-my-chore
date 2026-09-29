@@ -11,6 +11,7 @@
 import "https://deno.land/std@0.224.0/http/server.ts";
 import { CORS } from "../_shared/cors.ts";
 import { chatCompletions, parseJsonObject } from "../_shared/llm.ts";
+import { photoAssistSystemMessage } from "../_shared/prompt_guard.ts";
 
 interface AssistResult {
   suggest: "approve" | "reject" | "abstain";
@@ -34,19 +35,22 @@ async function assistWithVision(choreTitle: string, imageBase64: string): Promis
     json: true,
     temperature: 0.2,
     capability: "vision",
-    messages: [{
-      role: "user",
-      content: [
-        {
-          type: "text",
-          text:
-            `A kid claims they finished the chore: "${choreTitle}". ` +
-            "Look at the photo. Reply ONLY JSON: {\"suggest\": \"approve\"|\"reject\", \"reason\": string}. " +
-            "The reason is one kind sentence for the parent. You are not certain — if the photo is unclear, suggest reject gently.",
-        },
-        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
-      ],
-    }],
+    messages: [
+      { role: "system", content: photoAssistSystemMessage() },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text:
+              `A kid claims they finished the chore: "${choreTitle}". ` +
+              "Look at the photo. Reply ONLY JSON: {\"suggest\": \"approve\"|\"reject\", \"reason\": string}. " +
+              "The reason is one kind sentence for the parent. You are not certain — if the photo is unclear, suggest reject gently.",
+          },
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
+        ],
+      },
+    ],
   });
   if (!result) return null;
   const parsed = parseJsonObject(result.text);
