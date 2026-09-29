@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Do My Chore - Kid habits earn 100%. Parent plans the save.</title>
+<meta name="description" content="The kid earns the goal through weighted habit chores - percent only. The parent plans the real cost with an AI-suggested save schedule. Two accountabilities, one goal.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Do My Chore - project site (V1)
+   Brand: official lockup (cream paper #F5EADF, gold, deep pine)
+   System: Ledger (porcelain / pine / marigold, Fraunces + Public Sans)
+   ============================================================ */
+:root{
+  --paper:#F5EADF;         /* logo paper field */
+  --bg:#FBFAF8; --surface:#FFFFFF; --ink:#1F2621; --ink2:#4A544D;
+  --muted:#5D675F; --faint:#7A837C;
+  --pine:#1E4D3B; --pine-deep:#143528; --pine-soft:#EDF2EF;
+  --marigold:#D98E2B; --marigold-deep:#8F5A12; --marigold-soft:#F9EEDD;
+  --clay:#B45540; --clay-soft:#F7E9E5;
+  --line:#E6E2D9; --line-strong:#DCD6C8; --cream:#F7F5EF;
+  --gold:#C8891A;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Public Sans','Helvetica Neue',Arial,sans-serif;font-size:16px;line-height:1.6}
+img{max-width:100%;display:block}
+a{color:var(--pine)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+.serif{font-family:Fraunces,Georgia,serif;font-weight:700;letter-spacing:-.02em}
+.micro{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+:focus-visible{outline:2px solid var(--pine);outline-offset:2px;border-radius:4px}
+
+/* ---------- top nav ---------- */
+header{position:sticky;top:0;z-index:20;background:rgba(251,250,248,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+.nav .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.nav .brand img{width:34px;height:34px;border-radius:8px}
+.nav .brand span{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:18px;letter-spacing:-.02em}
+.nav .links{display:flex;gap:22px;align-items:center}
+.nav .links a{font-size:14px;font-weight:600;color:var(--ink2);text-decoration:none}
+.nav .links a:hover{color:var(--pine)}
+.nav .cta{background:var(--pine);color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px;padding:9px 16px}
+.nav .cta:hover{background:var(--pine-deep)}
+@media(max-width:760px){.nav .links a:not(.cta){display:none}}
+
+/* ---------- hero ---------- */
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center;padding:72px 0 84px}
+.hero .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--marigold-soft);border:1px solid #EBD9BC;color:var(--marigold-deep);font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;border-radius:999px;padding:6px 13px;margin-bottom:20px}
+.hero h1{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:clamp(38px,5.2vw,58px);line-height:1.06;letter-spacing:-.025em}
+.hero h1 em{font-style:normal;color:var(--pine)}
+.hero .sub{margin-top:20px;font-size:17.5px;line-height:1.6;color:var(--muted);max-width:34em}
+.hero .subactions{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:9px;border-radius:12px;padding:13px 22px;font-size:15.5px;font-weight:600;text-decoration:none;border:1px solid transparent;cursor:pointer;font-family:inherit}
+.btn.primary{background:var(--pine);color:#fff}
+.btn.primary:hover{background:var(--pine-deep)}
+.btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+.btn.ghost:hover{border-color:var(--pine);color:var(--pine)}
+.hero .proof{margin-top:26px;font-size:13px;color:var(--faint)}
+/* phone mock */
+.phone-wrap{display:flex;justify-content:center}
+.phone{width:300px;background:var(--bg);border:1px solid var(--line);border-radius:34px;overflow:hidden;box-shadow:0 24px 60px -30px rgba(31,38,33,.35)}
+.phone .p-top{padding:12px 14px 0}
+.phone .p-brand{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:13px}
+.phone .p-honesty{font-size:9.5px;color:var(--faint);padding:1px 0 6px}
+.phone .p-hair{height:1px;background:var(--line)}
+.p-body{padding:10px 12px 16px}
+/* rail */
+.rail{position:relative;height:26px}
+.rail .track,.rail .fill{position:absolute;top:11px;height:4px;border-radius:4px}
+.rail .track{left:0;right:0;background:var(--line)}
+.rail .fill{left:0;background:var(--marigold)}
+.rail .dot{position:absolute;top:7px;width:11px;height:11px;border-radius:50%;background:var(--bg);border:1.5px solid var(--line-strong);transform:translateX(-5px)}
+.rail .dot.on{background:var(--marigold);border-color:var(--marigold)}
+.rail .castle{position:absolute;right:0;top:-2px;width:26px;height:26px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--faint)}
+.railcaps{display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:2px}
+.pct{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:26px;color:var(--marigold-deep);letter-spacing:-.02em}
+.pct small{font-family:'Public Sans',sans-serif;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:0}
+.p-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px}
+.p-hero{position:relative;height:96px}
+.p-hero img{width:100%;height:100%;object-fit:cover}
+.p-hero .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(31,38,33,.15),rgba(31,38,33,.72))}
+.p-hero .t{position:absolute;left:10px;right:10px;bottom:7px;color:#fff}
+.p-hero .t .micro{color:#E9E4D8;font-size:8px;letter-spacing:.09em}
+.p-hero .t h3{font-family:Fraunces,Georgia,serif;font-size:16px;font-weight:700;letter-spacing:-.02em}
+.p-pad{padding:10px 12px 12px}
+.p-chore{display:flex;gap:8px;padding:8px 10px;border-top:1px solid var(--line);font-size:11px;align-items:flex-start}
+.p-chore:first-child{border-top:0}
+.p-chore .no{color:var(--faint);font-size:9.5px;padding-top:2px;width:14px}
+.p-chore b{font-size:12px;font-weight:600;display:inline}
+.p-chore .meta{display:block;font-size:10px;color:var(--muted);margin-top:1px}
+.badge-try{font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#6B4A15;background:var(--marigold-soft);border:1px solid #EBD9BC;border-radius:5px;padding:2px 6px;white-space:nowrap}
+.p-done{background:var(--marigold-soft);border:1px solid #EBD9BC;border-radius:10px;padding:9px 11px;text-align:center;margin-top:10px}
+.p-done .h{font-family:Fraunces,Georgia,serif;font-size:14px;font-weight:700}
+.p-done .chip{display:inline-block;background:var(--surface);border:1px solid var(--line);border-radius:999px;font-size:10px;color:var(--muted);padding:2px 8px;margin-top:5px}
+
+/* ---------- strip under hero ---------- */
+.strip{background:var(--paper);border-block:1px solid var(--line)}
+.strip .inner{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;padding:18px 28px}
+.strip .item{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;color:var(--ink2)}
+.strip svg{color:var(--gold)}
+
+/* ---------- sections ---------- */
+section{padding:84px 0}
+.sec-head{max-width:640px;margin-bottom:44px}
+.sec-head h2{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:clamp(28px,3.6vw,40px);line-height:1.12;letter-spacing:-.02em;margin-top:10px}
+.sec-head p{margin-top:14px;color:var(--muted);font-size:16.5px}
+
+/* two paths */
+.paths{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.path{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px}
+.path .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:4px 9px;margin-bottom:14px}
+.path.kid .tag{background:var(--marigold-soft);color:var(--marigold-deep);border:1px solid #EBD9BC}
+.path.parent .tag{background:var(--pine-soft);color:var(--pine);border:1px solid #D8E4DD}
+.path h3{font-family:Fraunces,Georgia,serif;font-size:24px;font-weight:700;letter-spacing:-.02em}
+.path p{margin-top:10px;color:var(--muted);font-size:15px}
+.path ul{list-style:none;margin-top:18px}
+.path li{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink2)}
+.path li svg{flex:none;margin-top:3px}
+.path.kid li svg{color:var(--marigold)}
+.path.parent li svg{color:var(--pine)}
+.path .big{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:20px;color:var(--ink);letter-spacing:-.01em}
+@media(max-width:860px){.paths{grid-template-columns:1fr}}
+
+/* how it works */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+.step{padding:26px 22px;border-left:1px solid var(--line)}
+.step:first-child{border-left:0}
+.step .n{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:15px;color:var(--marigold-deep);background:var(--marigold-soft);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.step h4{font-size:15.5px;font-weight:700}
+.step p{margin-top:6px;font-size:13.5px;color:var(--muted);line-height:1.55}
+@media(max-width:960px){.steps{grid-template-columns:1fr 1fr}.step{border-top:1px solid var(--line)}}
+@media(max-width:560px){.steps{grid-template-columns:1fr}}
+
+/* AI fenced */
+.ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.ai-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px}
+.ai-card h3{font-family:Fraunces,Georgia,serif;font-size:21px;font-weight:700;display:flex;align-items:center;gap:10px}
+.ai-card h3 svg{color:var(--gold)}
+.ai-card p{margin-top:10px;font-size:14.5px;color:var(--muted)}
+.ai-card .fence{margin-top:16px;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:13px 15px;font-size:13px;color:var(--ink2)}
+.ai-card .fence b{color:var(--ink)}
+@media(max-width:860px){.ai-grid{grid-template-columns:1fr}}
+
+/* album */
+.album-band{background:var(--pine-deep);color:#fff}
+.album-band .micro{color:#C9B99A}
+.album-band h2{color:#fff}
+.album-band .sec-head p{color:#C9D4CC}
+.album-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.pola{background:#fff;border-radius:4px;padding:9px 9px 6px;box-shadow:0 14px 34px -14px rgba(0,0,0,.5);transform:rotate(-1.4deg)}
+.pola:nth-child(2){transform:rotate(1.2deg)}
+.pola:nth-child(3){transform:rotate(-.6deg)}
+.pola img{border-radius:2px;aspect-ratio:1;object-fit:cover;width:100%}
+.pola .cap{display:flex;justify-content:space-between;align-items:center;padding:7px 2px 0;font-size:12px;font-weight:600;color:#1F2621}
+.pola .del{color:#9AA39B}
+@media(max-width:760px){.album-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.album-grid{grid-template-columns:1fr}}
+
+/* honesty */
+.honesty{display:grid;grid-template-columns:.9fr 1.1fr;gap:40px;align-items:center}
+.honesty .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px}
+.honesty h3{font-family:Fraunces,Georgia,serif;font-size:22px;font-weight:700}
+.honesty ul{list-style:none;margin-top:14px}
+.honesty li{display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink2)}
+.honesty li svg{flex:none;margin-top:3px;color:var(--pine)}
+@media(max-width:860px){.honesty{grid-template-columns:1fr}}
+
+/* stack + run */
+.stack-band{background:var(--cream);border-block:1px solid var(--line)}
+.stack-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.runbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px}
+.runbox h3{font-size:16px;font-weight:700;margin-bottom:12px}
+.runbox code{display:block;background:var(--pine-deep);color:#E8F2EC;border-radius:10px;padding:14px 16px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;line-height:1.7;overflow-x:auto;white-space:pre}
+.runbox .cmt{color:#8FA89B}
+.tech-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.tech{font-size:12.5px;font-weight:600;color:var(--ink2);background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:6px 13px}
+@media(max-width:860px){.stack-grid{grid-template-columns:1fr}}
+
+/* footer */
+footer{padding:44px 0 60px}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+.foot .brand{display:flex;align-items:center;gap:10px}
+.foot .brand img{width:30px;height:30px;border-radius:7px}
+.foot .brand span{font-family:Fraunces,Georgia,serif;font-weight:700}
+.foot .note{font-size:12.5px;color:var(--faint)}
+.foot .links{display:flex;gap:18px;font-size:13.5px;font-weight:600}
+.foot a{color:var(--ink2);text-decoration:none}
+.foot a:hover{color:var(--pine)}
+
+/* reveal */
+@media(prefers-reduced-motion:no-preference){
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label="Do My Chore home">
+      <img src="assets/icon.png" alt="Do My Chore icon">
+      <span>Do My Chore</span>
+    </a>
+    <nav class="links" aria-label="Main">
+      <a href="#paths">Two paths</a>
+      <a href="#how">How it works</a>
+      <a href="#ai">The AI</a>
+      <a href="#honesty">Honesty</a>
+      <a class="cta" href="https://github.com/pamu512/do-my-chore" target="_blank" rel="noopener">View the repo</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ============ HERO ============ -->
+<div class="wrap hero">
+  <div>
+    <span class="eyebrow">Build With AI: Basics submission</span>
+    <h1>Kid habits earn <em>100%</em>.<br>Parent plans the save.</h1>
+    <p class="sub">The kid earns the goal through weighted habit chores - a percent bar, never dollars. The parent plans the real cost with an AI-suggested save schedule. Two accountabilities, one goal.</p>
+    <div class="subactions">
+      <a class="btn primary" href="https://github.com/pamu512/do-my-chore" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .31.21.68.8.56A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        View the repo</a>
+      <a class="btn ghost" href="#how">See how it works</a>
+    </div>
+    <p class="proof">Flutter + Supabase POC · kid screens are percent-only · real money settles offline · demo runs with zero API keys</p>
+  </div>
+
+  <div class="phone-wrap">
+    <div class="phone" role="img" aria-label="Kid Today screen with the Disneyland goal at 23 percent and chores">
+      <div class="p-top">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="p-brand">Do My Chore</span>
+          <span style="font-size:9px;font-weight:700;background:var(--marigold);color:#1F2621;border-radius:999px;padding:3px 9px">Kid</span>
+        </div>
+        <div class="p-honesty">Demo ledger - real money settles offline.</div>
+        <div class="p-hair"></div>
+      </div>
+      <div class="p-body">
+        <div class="p-card">
+          <div class="p-hero">
+            <img src="assets/castle.jpg" alt="">
+            <div class="scrim"></div>
+            <div class="t"><span class="micro">Our Goal</span><h3>Disneyland</h3></div>
+          </div>
+          <div class="p-pad">
+            <div class="rail">
+              <div class="track"></div><div class="fill" style="width:23%"></div>
+              <div class="dot" style="left:20%"></div><div class="dot on" style="left:20%"></div>
+              <div class="castle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V9l3-3 3 3v3h4V9l3-3 3 3v13z"/><path d="M9 22v-4h6v4"/></svg></div>
+            </div>
+            <div class="railcaps"><span>0%</span><span>100%</span></div>
+            <div style="margin-top:8px"><span class="pct">23% <small>of the way there</small></span></div>
+            <p style="font-size:10.5px;color:var(--muted);margin-top:3px">Every check-in moves the bar.</p>
+          </div>
+        </div>
+        <div class="p-card">
+          <div class="p-chore"><span class="no">01</span><div><b>Make your bed</b><span class="meta">Every day · earns up to 40%</span></div></div>
+          <div class="p-chore"><span class="no">02</span><div><b>Plan the park itinerary</b><span class="meta">One time · earns 10%</span></div><span class="badge-try" style="margin-left:auto">NEXT TRY</span></div>
+        </div>
+        <div class="p-done">
+          <div class="h">That's today done.</div>
+          <span class="chip">+0.4% moved the bar today</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- strip -->
+<div class="strip">
+  <div class="inner">
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Percent-only kid screens</span>
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> AI suggests - parents decide</span>
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Works with zero API keys</span>
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Real money settles offline</span>
+  </div>
+</div>
+
+<!-- ============ TWO PATHS ============ -->
+<section id="paths">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="micro">The bargain, split honestly</span>
+      <h2>Two paths. One goal.</h2>
+      <p>Allowance apps either gamify chores with fake money or hand kids a debit card. Do My Chore splits the bargain instead.</p>
+    </div>
+    <div class="paths">
+      <div class="path kid reveal">
+        <span class="tag">The kid's path is habit</span>
+        <h3>Earn 100% of the goal</h3>
+        <p>Every chore has a cadence and a weight. "Make your bed" daily is worth 40% of the goal, paid out one tiny slice per check-in. Weights sum to at least 100% - parents can deliberately oversubscribe so a few skipped days don't sink the plan.</p>
+        <ul>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><span class="big">Percent only.</span> No dollars, coins, or store on any kid screen.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>Photo check-ins for chores a parent can verify by looking.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>A rejected chore is a <b>next try</b> - a kind note from the parent, never a failure.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>Finish the day and get the moment: <i>That's today done.</i></span></li>
+        </ul>
+      </div>
+      <div class="path parent reveal">
+        <span class="tag">The parent's path is the promise</span>
+        <h3>Plan the real cost</h3>
+        <p>The same app is a financial planner. Disneyland is $3,500 over 14 weeks - so the parent saves about $250 a week.</p>
+        <ul>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><span class="big">Dollars live here.</span> Save cadence, saved-so-far, and an honest catch-up rate if you slip.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>A manual <i>I saved this week</i> log keeps the promise visible.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>Approve or send back with a note - previewing exactly what the kid will read.</span></li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>Makeup chores exist if the kid falls behind - off by default, never automatic.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW ============ -->
+<section id="how" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="micro">How it works</span>
+      <h2>From goal to earned, in four moves</h2>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="n">1</div>
+        <h4>Set the goal</h4>
+        <p>Family trip or kid item, real cost, target date. The planner does the save math - about $250 a week for a $3,500 trip.</p>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <h4>Suggest the plan</h4>
+        <p>AI drafts a weekly save plus weighted habits that sum to at least 100%. Edit any line, then accept. It explains its why in plain parent language.</p>
+      </div>
+      <div class="step">
+        <div class="n">3</div>
+        <h4>The kid checks in</h4>
+        <p>Photo proof where looking works, trust where it doesn't. Each approval moves the bar a tiny slice of the weight.</p>
+      </div>
+      <div class="step">
+        <div class="n">4</div>
+        <h4>100% earns it</h4>
+        <p>The bar fills, the day gets its moment, and the finale hands off to the parent - the trip is talked about together, tonight.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AI ============ -->
+<section id="ai" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="micro">AI where it helps, fenced where it must be</span>
+      <h2>AI that suggests. Parents decide.</h2>
+      <p>Both AI moments run deterministically with zero API keys - the demo never depends on a key being set.</p>
+    </div>
+    <div class="ai-grid">
+      <div class="ai-card reveal">
+        <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg> Suggest plan</h3>
+        <p>Given the goal, cost, date, and the kid's age, the AI proposes a weekly save and 4-8 weighted chores summing to at least 100% - with a why in plain parent language.</p>
+        <div class="fence"><b>The fence:</b> weights are validated against the sum rule; photos only on visually verifiable chores; no API key means the deterministic builder produces the same shape.</div>
+      </div>
+      <div class="ai-card reveal">
+        <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg> Photo assist</h3>
+        <p>For chores a parent can verify by looking, it suggests approve or send back. Trust-based chores - reading time - never ask for photos.</p>
+        <div class="fence"><b>The fence:</b> the parent is always final. The app says <i>looks complete - you make the call</i>, and means it. No verification claims.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ALBUM ============ -->
+<section class="album-band" id="album">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="micro">The Goal Album</span>
+      <h2>Proof becomes a memory</h2>
+      <p>Approved check-in photos collect into a deletable album of the goal you're building toward. Demo photos are test data. Check-in photos stay in your family's scoped storage.</p>
+    </div>
+    <div class="album-grid reveal">
+      <div class="pola"><img src="assets/bed.jpg" alt="Bed made - approved check-in photo"><div class="cap"><span>Bed made</span><svg class="del" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div></div>
+      <div class="pola"><img src="assets/dishes.jpg" alt="Dishes done - approved check-in photo"><div class="cap"><span>Dishes - done</span><svg class="del" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div></div>
+      <div class="pola"><img src="assets/laundry.jpg" alt="Laundry folded - approved check-in photo"><div class="cap"><span>Laundry folded</span><svg class="del" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HONESTY ============ -->
+<section id="honesty">
+  <div class="wrap honesty">
+    <div class="reveal">
+      <span class="micro">Honesty first</span>
+      <h2 class="serif" style="font-size:clamp(28px,3.6vw,40px);line-height:1.12;margin-top:10px">No bank. No card.<br>No fake promises.</h2>
+      <p style="margin-top:14px;color:var(--muted)">The app plans money and tracks habits. Real money moves between parent and kid, offline. That honesty is a feature, not a limitation - and it's fenced in the code.</p>
+    </div>
+    <div class="card reveal">
+      <h3>What we never claim</h3>
+      <ul>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>No banking, card, or KYC features - ever. Kid screens show percent only.</span></li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>No verification-accuracy claims. The AI suggests; the parent decides.</span></li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>No kids'-privacy compliance claims. Demo photos are labeled test data.</span></li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>Family data stays family data: row-level security on every table, storage paths scoped by family.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STACK + RUN ============ -->
+<section class="stack-band" id="run">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="micro">Open source, runnable in minutes</span>
+      <h2>Run it yourself</h2>
+    </div>
+    <div class="stack-grid">
+      <div class="runbox reveal">
+        <h3>Quickstart</h3>
+        <code><span class="cmt"># 1. local Supabase (Docker)</span>
+git clone https://github.com/pamu512/do-my-chore
+cd do-my-chore && supabase start
+supabase db reset
+
+<span class="cmt"># 2. the app (seeded demo family)</span>
+cd app && flutter pub get
+flutter run \
+  --dart-define=SUPABASE_URL=http://127.0.0.1:54321 \
+  --dart-define=SUPABASE_ANON_KEY=&lt;from supabase status&gt;</code>
+        <p style="margin-top:12px;font-size:13px;color:var(--muted)">Needs Docker (Supabase runs local) and the Flutter SDK. The seeded demo family makes the loop reproducible in minutes.</p>
+      </div>
+      <div class="runbox reveal">
+        <h3>Built with</h3>
+        <div class="tech-list">
+          <span class="tech">Flutter</span><span class="tech">Dart</span>
+          <span class="tech">Supabase Postgres</span><span class="tech">Row-level security</span>
+          <span class="tech">Supabase Storage</span><span class="tech">Edge Functions (Deno)</span>
+          <span class="tech">OpenAI (optional)</span><span class="tech">Python scripts</span>
+        </div>
+        <p style="margin-top:16px;font-size:14px;color:var(--muted)">Seeded demo family: <b>parent@demo / kid@demo</b>. Seeded weights 40 / 30 / 20 / 10 add up to 100%. 114 tests keep the money math honest.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="brand">
+      <img src="assets/icon.png" alt="Do My Chore icon">
+      <span>Do My Chore</span>
+    </div>
+    <div class="links">
+      <a href="https://github.com/pamu512/do-my-chore" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://learn-ai-basics.devpost.com/" target="_blank" rel="noopener">Build With AI: Basics</a>
+    </div>
+    <p class="note">A hackathon POC. Demo data only - not a banking product.</p>
+  </div>
+</footer>
+
+<script>
+// calm section reveals
+(function(){
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+  },{threshold:.14});
+  document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});
+})();
+</script>
+</body>
+</html>
