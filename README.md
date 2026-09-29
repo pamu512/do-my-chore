@@ -1,23 +1,26 @@
 # Do My Chore
 
-**Parent sets the goal, AI plans the save, kids earn it.** A Flutter + Supabase POC built for [Build With AI: Basics](https://learn-ai-basics.devpost.com/).
+**Kid habits earn 100%. Parent plans the save.** A Flutter + Supabase POC built for [Build With AI: Basics](https://learn-ai-basics.devpost.com/).
 
-A parent creates a goal (e.g. *Disneyland, $500, by December*), gets an AI-suggested save plan — weekly top-up plus chores, with a plain-language "why" — and kids complete chores (photo proof where it makes sense). Approvals credit a **goal bank** with overflow landing in the kid's **pocket**, and chore photos collect into a deletable **Goal Album**.
+Project site: https://pamu512.github.io/do-my-chore/
+
+The kid earns the goal through weighted habit chores - a percent bar, never dollars. The parent plans the real cost with an AI-suggested save schedule. Two accountabilities, one goal.
 
 ## The demo loop
 
-1. Parent creates goal → **AI Suggest plan** (weekly top-up + 4–8 chores + why) → edit → accept
-2. In-app **role switch** to Kid → Today list → mark done (camera when the chore needs visual proof)
-3. Role switch back → **approve** (AI photo assist suggests, parent decides) or **reject with a nudge** → rejected chores return to Kid Today
-4. Ledger credits **goal bank vs pocket** (overshoot fills the goal, remainder goes to pocket) → progress bar fills
-5. Approved photos can be added to the **Goal Album** — and any album item can be deleted
+1. Parent creates a goal - family trip or kid item, real cost, target date (Disneyland, $3,500, ~14 weeks) → **Suggest plan** drafts the weekly parent save plus weighted chores summing to **at least 100%**, with a plain-language *why* → edit anything → accept
+2. In-app **role switch** to Kid → Today list is **percent-only** (no dollars on any kid screen) → mark done, with photo check-in where looking works
+3. Role switch back → **Approve**, or **Send back** with a note. The sheet previews exactly what the kid will read
+4. Approvals move the kid's % bar (one small slice of the chore's weight per check-in); rejected chores return to Today as a **NEXT TRY** with the parent's note
+5. Parent tracks the real save with **"I saved this week"**; if the kid falls behind pace, makeup chores are a parent choice - off by default, never automatic
+6. Approved photos collect into a deletable **Goal Album**
 
 ## Architecture
 
-- **Flutter** (iOS simulator primary) — Parent ↔ Kid role switch on one seeded demo family
-- **Supabase** — Auth, Postgres with **RLS on every family-scoped table**, Storage for photos, Edge Functions for AI
-- **`ledger_entries` is the money source of truth** — balances are summed on read; there is no cached balance column
-- Both AI moments (**Suggest plan**, **Photo assist**) run deterministically with **zero API keys**; set `OPENAI_API_KEY` to upgrade them
+- **Flutter** (iOS simulator primary) - Parent ↔ Kid role switch on one seeded demo family
+- **Supabase** - Auth, Postgres with **RLS on every family-scoped table**, Storage (family-scoped paths) for photos, Edge Functions for AI
+- **Progress is derived, not stored** - the kid's % comes from approved submissions × per-check-in credits (`weight / expected instances`); no denormalized balance
+- **Both AI moments** (**Suggest plan**, **Photo assist**) run deterministically with **zero API keys**; set `OPENAI_API_KEY` to upgrade them. The AI suggests; the parent is always final.
 
 ## Run it
 
@@ -51,18 +54,17 @@ These are **demo-only credentials for a local instance** — never reuse them an
 
 ## Honesty notices
 
-- **Money:** the ledger is in-app only. Nothing here is a bank, card, or payment rail; parents settle real money **offline**. Pocket cash-out is a family conversation, not a feature.
-- **Photos & kids:** all photos and kid accounts in this demo are **test data only**. This POC does not implement COPPA-style verifiable parental consent — that is a hard requirement before any real family uses something like this.
-- **AI:** photo assist only *suggests*; **the parent is always final**. No claim of perfect verification is made anywhere.
+- **Money:** the app plans and tracks; it is not a bank, card, or payment rail. Parents settle real money **offline**. Kid screens show percent only.
+- **Photos & kids:** all photos and kid accounts in this demo are **test data only**. Check-in photos live in the family's scoped storage. This POC does not implement COPPA-style verifiable parental consent. That is a hard requirement before any real family use.
+- **AI:** photo assist only *suggests*; **the parent is always final**. No verification-accuracy claims anywhere.
 
 ## Repository docs
 
-- [`scope.md`](scope.md) · [`prd.md`](prd.md) · [`spec.md`](spec.md) — planning docs (Devpost Learn skill-pack substance)
-- [`docs/superpowers/specs/2026-09-27-do-my-chore-design.md`](docs/superpowers/specs/2026-09-27-do-my-chore-design.md) — authoritative design (rev 2)
-- [`docs/superpowers/plans/2026-09-27-do-my-chore.md`](docs/superpowers/plans/2026-09-27-do-my-chore.md) — task-by-task implementation plan
-- [`docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md`](docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md) — V3 encouragement layer (locked)
-- [`docs/superpowers/plans/2026-09-29-encouragement-layer-v3.md`](docs/superpowers/plans/2026-09-29-encouragement-layer-v3.md) — V3 implementation plan
-- [`docs/demo-video-script.md`](docs/demo-video-script.md) — 1–3 min demo shot list
+- [`scope.md`](scope.md) · [`prd.md`](prd.md) · [`spec.md`](spec.md) - planning docs (rev 3)
+- [`docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md`](docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md) - money model rev 3 (locked)
+- [`docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md`](docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md) - V3 encouragement layer (locked)
+- [`docs/demo-video-script.md`](docs/demo-video-script.md) - 1–3 min demo shot list
+- [`docs/devpost-draft.md`](docs/devpost-draft.md) - submission draft
 
 ## Layout
 
