@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:do_my_chore/services/chore_service.dart';
 import 'package:do_my_chore/services/chore_progress_math.dart';
+import 'package:do_my_chore/services/encouragement.dart';
 
 /// Rev 3 approval semantics: approve flips the submission status only.
 /// Progress lives in approved submissions x instance credits, never in
@@ -46,7 +47,21 @@ void main() {
     test('reject builds a nudge and returns chore to Today', () {
       final nudge = rejectNudge(choreTitle: 'Wash the dishes');
       expect(nudge, isNotEmpty);
-      expect(nudge.toLowerCase(), contains('try again'));
+      expect(nudge.toLowerCase(), isNot(contains('try again')));
+      expect(nudge, contains('bright light'));
+      expect(nudge, contains('Wash the dishes'));
+      expect(kidCopyAllowed(nudge), isTrue);
+    });
+
+    test('reject prefers a non-empty parent note', () {
+      expect(
+        rejectNudge(choreTitle: 'Bed', parentNote: '  Whole sheet, please.  '),
+        'Whole sheet, please.',
+      );
+      expect(
+        rejectNudge(choreTitle: 'Bed', parentNote: '   '),
+        rejectNudge(choreTitle: 'Bed'),
+      );
     });
 
     test('resubmission creates a new row, never mutates the old one', () {

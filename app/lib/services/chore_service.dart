@@ -24,7 +24,7 @@ String rejectNudge({required String choreTitle, String? parentNote}) {
   if (parentNote != null && parentNote.trim().isNotEmpty) {
     return parentNote.trim();
   }
-  return 'Try again with a clearer photo of the finished "$choreTitle"';
+  return 'So close! One more photo of the whole "$choreTitle" - bright light if you can - and this one\'s done.';
 }
 
 class ChoreService {

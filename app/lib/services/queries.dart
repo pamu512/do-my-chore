@@ -1,5 +1,6 @@
 import 'chore_progress_math.dart';
 import 'chore_service.dart';
+import 'encouragement.dart';
 import 'goal_service.dart';
 import 'ledger_math.dart';
 
@@ -12,6 +13,8 @@ class KidChoreCard {
   final bool isMakeup;
   final bool isBonus;
   final String? nudge; // rejected-with-nudge → retry prompt
+  final String? latestStatus; // pending | approved | rejected | null
+  final DateTime? latestCreatedAt;
 
   const KidChoreCard({
     required this.id,
@@ -22,7 +25,16 @@ class KidChoreCard {
     required this.isMakeup,
     required this.isBonus,
     this.nudge,
+    this.latestStatus,
+    this.latestCreatedAt,
   });
+
+  KidRowKind rowKind(DateTime now) => kidRowKind(
+        latestStatus: latestStatus,
+        latestAt: latestCreatedAt,
+        cadence: cadence,
+        now: now,
+      );
 
   String get cadenceLabel {
     switch (cadence) {
@@ -69,11 +81,19 @@ extension ChoreServiceQueries on ChoreService {
     return rows.map<KidChoreCard>((row) {
       final subs = (row['chore_submissions'] as List?) ?? const [];
       String? nudge;
+      String? latestStatus;
+      DateTime? latestCreatedAt;
       if (subs.isNotEmpty) {
         final sorted = [...subs]
-          ..sort((a, b) => (b['created_at'] as String).compareTo(a['created_at'] as String));
+          ..sort((a, b) =>
+              (b['created_at'] as String).compareTo(a['created_at'] as String));
         final latest = sorted.first;
-        if (latest['status'] == 'rejected') nudge = latest['reject_nudge'] as String?;
+        latestStatus = latest['status'] as String?;
+        final created = latest['created_at'] as String?;
+        if (created != null) latestCreatedAt = DateTime.parse(created);
+        if (latestStatus == 'rejected') {
+          nudge = latest['reject_nudge'] as String?;
+        }
       }
       return KidChoreCard(
         id: row['id'] as String,
@@ -84,6 +104,8 @@ extension ChoreServiceQueries on ChoreService {
         isMakeup: row['is_makeup'] == true,
         isBonus: row['is_bonus'] == true,
         nudge: nudge,
+        latestStatus: latestStatus,
+        latestCreatedAt: latestCreatedAt,
       );
     }).toList();
   }

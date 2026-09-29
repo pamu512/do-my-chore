@@ -95,6 +95,10 @@ void main() {
     await _shot(binding, 'beat-05');
     await tester.tap(find.text('Done! Send to parent'));
     await _settle(tester, 2500);
+    if (find.text('Back to today').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Back to today'));
+      await _settle(tester);
+    }
 
     // ---- Beat 6: Parent Approvals → approve ----
     await tester.tap(find.text('Parent'));
@@ -133,15 +137,21 @@ void main() {
     await _settle(tester);
     await tester.tap(find.text('Done! Send to parent'));
     await _settle(tester, 2500);
+    if (find.text('Back to today').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Back to today'));
+      await _settle(tester);
+    }
 
-    // ---- Beat 8: Reject → nudge → Kid retry ----
+    // ---- Beat 8: Send back → next try ----
     await tester.tap(find.text('Parent'));
     await _settle(tester);
     await tester.tap(find.textContaining('waiting for approval'));
     await _settle(tester, 1500);
-    final reject = find.text('Reject with nudge');
+    final reject = find.text('Send back');
     expect(reject, findsWidgets);
     await tester.tap(reject.first);
+    await _settle(tester, 800);
+    await tester.tap(find.text('Send note'));
     await _settle(tester, 1500);
     if (find.byType(BackButton).evaluate().isNotEmpty || find.byIcon(Icons.arrow_back).evaluate().isNotEmpty) {
       await tester.pageBack();
@@ -154,7 +164,8 @@ void main() {
     }
     await tester.tap(find.text('Kid'));
     await _settle(tester, 1500);
-    expect(find.textContaining('Try again'), findsWidgets);
+    expect(find.text('NEXT TRY'), findsWidgets);
+    expect(find.textContaining('Try again'), findsNothing);
     await _shot(binding, 'beat-08');
 
     // ---- Beat 9: Goal Album ----

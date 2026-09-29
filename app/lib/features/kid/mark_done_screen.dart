@@ -7,6 +7,7 @@ import '../../core/dmc_theme.dart';
 import '../../services/chore_progress_math.dart';
 import '../../services/chore_service.dart';
 import '../../services/queries.dart';
+import 'encouragement_widgets.dart';
 
 /// Kid marks a chore done. Photo chores open the camera; submit is blocked
 /// until a photo is attached. Copy is percent-based only.
@@ -31,6 +32,7 @@ class MarkDoneScreen extends StatefulWidget {
 class _MarkDoneScreenState extends State<MarkDoneScreen> {
   String? _photoPath;
   bool _submitting = false;
+  bool _sent = false;
 
   Future<void> _pickPhoto() async {
     // DEMO_WALK: attach a tiny generated JPEG so the iOS Simulator walk
@@ -76,7 +78,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
       } else {
         await widget.service.submitChore(choreId: widget.chore.id);
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) setState(() => _sent = true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -100,48 +102,59 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chore = widget.chore;
+    return MarkDoneView(
+      chore: widget.chore,
+      weeksN: widget.weeksN,
+      sent: _sent,
+      submitting: _submitting,
+      photoPath: _photoPath,
+      creditLine: _creditLine(),
+      onPickPhoto: _pickPhoto,
+      onSubmit: _submit,
+      onBack: () => Navigator.pop(context),
+    );
+  }
+}
+
+/// Presentational Mark Done (form or after-send). Tests pump this without
+/// constructing a [ChoreService].
+class MarkDoneView extends StatelessWidget {
+  const MarkDoneView({
+    super.key,
+    required this.chore,
+    required this.sent,
+    required this.submitting,
+    required this.onSubmit,
+    required this.onBack,
+    this.weeksN,
+    this.photoPath,
+    this.creditLine,
+    this.onPickPhoto,
+  });
+
+  final KidChoreCard chore;
+  final int? weeksN;
+  final bool sent;
+  final bool submitting;
+  final String? photoPath;
+  final String? creditLine;
+  final VoidCallback? onPickPhoto;
+  final VoidCallback onSubmit;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(chore.title)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-        children: [
-          if (chore.nudge != null)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Dmc.marigoldSoft,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFEBD9BC)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.format_quote_outlined,
-                      size: 18, color: Dmc.marigoldDeep),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('PARENT SAID',
-                            style:
-                                Dmc.micro.copyWith(color: Dmc.marigoldDeep)),
-                        const SizedBox(height: 2),
-                        Text(
-                          chore.nudge!,
-                          style: TextStyle(
-                            fontSize: 14,
-                            height: 1.5,
-                            color: const Color(0xFF5C3F11),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+      body: sent
+          ? KidSentConfirmation(onBack: onBack)
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+              children: [
+                if (chore.nudge != null) ...[
+                  KidNextTryNote(note: chore.nudge!),
+                  const SizedBox(height: 4),
                 ],
-              ),
-            ),
           const SizedBox(height: 4),
           Card(
             child: Padding(
@@ -173,7 +186,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${chore.cadenceLabel} chore · ${_creditLine()}',
+                    '${chore.cadenceLabel} chore · ${creditLine ?? 'Adds to your goal progress'}',
                     style: TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
                   ),
                 ],
@@ -185,7 +198,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
             Text('This one needs a photo so your parent can see it.',
                 style: TextStyle(fontSize: 13, color: Dmc.muted)),
             const SizedBox(height: 8),
-            if (_photoPath != null)
+            if (photoPath != null)
               // The actual captured photo, framed like a snapshot.
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -205,7 +218,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(2),
                   child: Image.file(
-                    File(_photoPath!),
+                    File(photoPath!),
                     height: 180,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -219,16 +232,16 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
                 ),
               ),
             OutlinedButton.icon(
-              onPressed: _pickPhoto,
+              onPressed: onPickPhoto,
               style: OutlinedButton.styleFrom(
                 backgroundColor: Dmc.surface,
                 foregroundColor: Dmc.ink,
                 side: const BorderSide(color: Dmc.lineStrong),
               ),
               icon: const Icon(Icons.photo_camera_outlined, size: 18),
-              label: Text(_photoPath == null ? 'Take a photo' : 'Retake photo'),
+              label: Text(photoPath == null ? 'Take a photo' : 'Retake photo'),
             ),
-            if (_photoPath != null)
+            if (photoPath != null)
               Container(
                 margin: const EdgeInsets.only(top: 10),
                 padding:
@@ -244,7 +257,7 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
                     const SizedBox(width: 9),
                     Expanded(
                       child: Text(
-                        'Photo attached. Your parent checks it, then the bar moves.',
+                        'Photo attached - it counts once your parent takes a look.',
                         style: TextStyle(fontSize: 13.5, color: Dmc.pineDeep),
                       ),
                     ),
@@ -274,10 +287,10 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
             ),
           const SizedBox(height: 20),
           FilledButton(
-            onPressed: (_submitting || (chore.requiresPhoto && _photoPath == null))
+            onPressed: (submitting || (chore.requiresPhoto && photoPath == null))
                 ? null
-                : _submit,
-            child: Text(_submitting ? 'Sending...' : 'Done! Send to parent'),
+                : onSubmit,
+            child: Text(submitting ? 'Sending...' : 'Done! Send to parent'),
           ),
         ],
       ),

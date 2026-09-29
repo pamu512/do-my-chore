@@ -60,6 +60,8 @@ These are **demo-only credentials for a local instance** — never reuse them an
 - [`scope.md`](scope.md) · [`prd.md`](prd.md) · [`spec.md`](spec.md) — planning docs (Devpost Learn skill-pack substance)
 - [`docs/superpowers/specs/2026-09-27-do-my-chore-design.md`](docs/superpowers/specs/2026-09-27-do-my-chore-design.md) — authoritative design (rev 2)
 - [`docs/superpowers/plans/2026-09-27-do-my-chore.md`](docs/superpowers/plans/2026-09-27-do-my-chore.md) — task-by-task implementation plan
+- [`docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md`](docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md) — V3 encouragement layer (locked)
+- [`docs/superpowers/plans/2026-09-29-encouragement-layer-v3.md`](docs/superpowers/plans/2026-09-29-encouragement-layer-v3.md) — V3 implementation plan
 - [`docs/demo-video-script.md`](docs/demo-video-script.md) — 1–3 min demo shot list
 
 ## Layout

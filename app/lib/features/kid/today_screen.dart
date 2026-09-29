@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../core/dmc_theme.dart';
+import '../../services/chore_progress_math.dart';
 import '../../services/chore_service.dart';
+import '../../services/encouragement.dart';
 import '../../services/goal_service.dart';
 import '../../services/queries.dart';
+import 'encouragement_widgets.dart';
 import 'mark_done_screen.dart';
 
-/// Kid Today: chores (with rejected-nudge retries) and the goal rail in
+/// Kid Today: chores (with next-try notes) and the goal rail in
 /// percent only. No dollars, no pocket: earning the goal is a habit streak;
 /// the money side lives on the parent's planner screens.
 class KidTodayScreen extends StatefulWidget {
@@ -37,15 +40,39 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final c = await chores.todayForKid();
-    final g = await goals.kidGoalSummary();
-    if (mounted) {
-      setState(() {
-        _chores = c;
-        _goals = g;
-        _loading = false;
-      });
+    try {
+      final c = await chores.todayForKid();
+      final g = await goals.kidGoalSummary();
+      if (mounted) {
+        setState(() {
+          _chores = c;
+          _goals = g;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load today: $e')),
+        );
+      }
     }
+  }
+
+  Future<void> _open(KidChoreCard c) async {
+    if (widget.choreService == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MarkDoneScreen(
+          service: widget.choreService!,
+          chore: c,
+          weeksN: _goals.isNotEmpty ? _goals.first.weeksN : null,
+        ),
+      ),
+    );
+    await _refresh();
   }
 
   @override
@@ -67,54 +94,146 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Kid Today')),
-      body: ListView(
+      body: KidTodayBody(
+        chores: _chores,
+        goals: _goals,
+        now: DateTime.now(),
+        onOpen: _open,
+      ),
+    );
+  }
+}
+
+/// Presentational Today list. Tests pump this without Supabase.
+class KidTodayBody extends StatelessWidget {
+  const KidTodayBody({
+    super.key,
+    required this.chores,
+    required this.goals,
+    required this.now,
+    this.onOpen,
+  });
+
+  final List<KidChoreCard> chores;
+  final List<GoalProgressView> goals;
+  final DateTime now;
+  final ValueChanged<KidChoreCard>? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    if (goals.isNotEmpty && goals.first.choreProgressPct >= 100 - 1e-9) {
+      final g = goals.first;
+      return ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
-          if (_goals.isEmpty)
-            const _NoGoalCard()
-          else
-            ..._goals.map(_goalHero),
-          const SizedBox(height: 6),
-          if (_chores.isEmpty)
-            const _NoChoresCard()
-          else ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(2, 10, 2, 8),
-              child: Row(
-                children: [
-                  Text("TODAY'S CHORES", style: Dmc.micro),
-                  const Spacer(),
-                  Text(
-                    'Tap one when it\'s done',
-                    style: TextStyle(fontSize: 12, color: Dmc.faint),
-                  ),
-                ],
-              ),
-            ),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  for (var i = 0; i < _chores.length; i++)
-                    _choreRow(context, _chores[i], i + 1),
-                ],
-              ),
-            ),
-          ],
+          KidGoalEarnedFinale(
+            goalTitle: g.title,
+            handOff: earnedHandOff(goalMode: g.goalMode),
+          ),
         ],
-      ),
+      );
+    }
+
+    final kinds = chores.map((c) => c.rowKind(now)).toList();
+    final dayDone = allSent(kinds);
+    final g = goals.isNotEmpty ? goals.first : null;
+    final behind = g?.kidBehindPace == true;
+    final openChores = [
+      for (var i = 0; i < chores.length; i++)
+        if (kinds[i] == KidRowKind.open) chores[i]
+    ];
+    final showPace = behind && openChores.isNotEmpty && !dayDone;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+      children: [
+        if (goals.isEmpty)
+          const _NoGoalCard()
+        else
+          ...goals.map(_goalHero),
+        if (showPace && g != null) ...[
+          const SizedBox(height: 2),
+          KidPaceCard(
+            title: paceCardTitle(_checkInsNeeded(g, openChores)),
+            body: paceCardBody(openChores.map((c) => c.title).toList()),
+          ),
+        ],
+        if (dayDone) ...[
+          const SizedBox(height: 8),
+          KidDayDoneCard(
+            movedPct: todayMovedPct(
+              chores: [
+                for (final c in chores)
+                  (
+                    weightPct: c.weightPct,
+                    cadence: c.cadence,
+                    latestAt: c.latestCreatedAt,
+                  )
+              ],
+              weeksN: g?.weeksN ?? 1,
+              now: now,
+            ),
+          ),
+        ],
+        const SizedBox(height: 6),
+        if (chores.isEmpty)
+          const _NoChoresCard()
+        else ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(2, 10, 2, 8),
+            child: Row(
+              children: [
+                Text("TODAY'S CHORES", style: Dmc.micro),
+                const Spacer(),
+                Text(
+                  dayDone ? 'Waiting on your parent' : 'Tap one when it\'s done',
+                  style: const TextStyle(fontSize: 12, color: Dmc.faint),
+                ),
+              ],
+            ),
+          ),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < chores.length; i++)
+                  _KidChoreRow(
+                    chore: chores[i],
+                    index: i + 1,
+                    kind: kinds[i],
+                    onOpen: onOpen,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  int _checkInsNeeded(GoalProgressView g, List<KidChoreCard> open) {
+    final credits = open.map((c) {
+      final expected =
+          expectedInstances(cadence: c.cadence, weeksN: g.weeksN);
+      return instanceCreditPct(
+          weightPct: c.weightPct, expectedInstances: expected);
+    }).toList()
+      ..sort((a, b) => b.compareTo(a));
+    return checkInsToOnPace(
+      progressPct: g.choreProgressPct,
+      weeksN: g.weeksN,
+      weeksElapsed: g.weeksElapsed,
+      openCreditsDesc: credits,
     );
   }
 
   Widget _goalHero(GoalProgressView g) {
     final pct = g.choreProgressPct;
-    final earned = pct >= 100 - 1e-9;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Castle hero: the shared dream at the top of the kid's day.
           SizedBox(
             height: 130,
             width: double.infinity,
@@ -125,17 +244,15 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
                   'assets/photos/castle.jpg',
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
+                  errorBuilder: (_, _, _) =>
+                      const ColoredBox(color: Dmc.pineDeep),
                 ),
-                // Porcelain scrim so white type stays AA on any photo.
-                DecoratedBox(
+                const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        const Color(0x331F2621),
-                        const Color(0xB31F2621),
-                      ],
+                      colors: [Color(0x331F2621), Color(0xB31F2621)],
                     ),
                   ),
                 ),
@@ -188,7 +305,7 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
                         size: 30,
                         weight: FontWeight.w700,
                         color: Dmc.marigoldDeep),
-                    children: [
+                    children: const [
                       TextSpan(
                         text: ' of the way there',
                         style: TextStyle(
@@ -203,12 +320,12 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  earned
-                      ? 'You earned it. Talk to your parent about the ${g.goalMode == 'family_trip' ? 'trip' : 'reward'}.'
-                      : 'Keep the habits going. 100% earns the '
-                          '${g.goalMode == 'family_trip' ? 'trip' : 'reward'}.',
+                  kidHeroLine(
+                    behindPace: g.kidBehindPace,
+                    goalMode: g.goalMode,
+                  ),
                   style:
-                      TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
+                      const TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
                 ),
               ],
             ),
@@ -217,36 +334,41 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
       ),
     );
   }
+}
 
-  Widget _choreRow(BuildContext context, KidChoreCard c, int n) {
-    final retry = c.nudge != null;
+class _KidChoreRow extends StatelessWidget {
+  const _KidChoreRow({
+    required this.chore,
+    required this.index,
+    required this.kind,
+    this.onOpen,
+  });
+
+  final KidChoreCard chore;
+  final int index;
+  final KidRowKind kind;
+  final ValueChanged<KidChoreCard>? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final sent = kind == KidRowKind.sent;
+    final next = kind == KidRowKind.nextTry;
+    final tappable = !sent && onOpen != null;
     return InkWell(
-      onTap: () async {
-        if (widget.choreService == null) return;
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MarkDoneScreen(
-              service: widget.choreService!,
-              chore: c,
-              weeksN: _goals.isNotEmpty ? _goals.first.weeksN : null,
-            ),
-          ),
-        );
-        _refresh();
-      },
+      onTap: tappable ? () => onOpen!(chore) : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Dmc.line)),
+        decoration: BoxDecoration(
+          color: sent ? Dmc.pineSoft : null,
+          border: const Border(top: BorderSide(color: Dmc.line)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
               width: 20,
-              child: Text('$n'.padLeft(2, '0'),
-                  style: TextStyle(fontSize: 12, color: Dmc.faint)),
+              child: Text('$index'.padLeft(2, '0'),
+                  style: const TextStyle(fontSize: 12, color: Dmc.faint)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -257,70 +379,58 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
                     children: [
                       Flexible(
                         child: Text(
-                          c.title,
+                          chore.title,
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Dmc.ink,
+                            color: sent ? Dmc.pineDeep : Dmc.ink,
                           ),
                         ),
                       ),
-                      if (c.requiresPhoto) ...[
+                      if (chore.requiresPhoto && !sent) ...[
                         const SizedBox(width: 6),
-                        Icon(Icons.photo_camera_outlined,
+                        const Icon(Icons.photo_camera_outlined,
                             size: 15, color: Dmc.faint),
                       ],
                     ],
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    _choreMeta(c),
-                    style: TextStyle(fontSize: 12.5, color: Dmc.muted),
+                    _choreMeta(chore),
+                    style: const TextStyle(fontSize: 12.5, color: Dmc.muted),
                   ),
-                  if (retry)
+                  if (next && chore.nudge != null)
                     Container(
                       margin: const EdgeInsets.only(top: 6),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 6),
+                          horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: Dmc.marigoldSoft,
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFEBD9BC)),
                       ),
                       child: Text(
-                        'Try again - ${c.nudge}',
-                        style: TextStyle(
+                        chore.nudge!,
+                        style: const TextStyle(
                           fontSize: 12.5,
-                          height: 1.4,
-                          color: const Color(0xFF6B4A15),
+                          height: 1.45,
+                          color: Color(0xFF6B4A15),
                         ),
                       ),
                     ),
+                  if (sent) ...[
+                    const SizedBox(height: 4),
+                    const KidSentChip(),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            if (retry)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Dmc.marigoldSoft,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFFEBD9BC)),
-                ),
-                child: Text(
-                  'TRY AGAIN',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.6,
-                    color: const Color(0xFF6B4A15),
-                  ),
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
+            if (next)
+              const KidNextTryBadge()
+            else if (!sent)
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
                 child: Icon(Icons.chevron_right, size: 18, color: Dmc.faint),
               ),
           ],
@@ -328,22 +438,21 @@ class _KidTodayScreenState extends State<KidTodayScreen> {
       ),
     );
   }
+}
 
-  String _choreMeta(KidChoreCard c) {
-    if (c.isMakeup) return 'Makeup chore · catches you up';
-    if (c.isBonus) return 'Bonus chore · extra points';
-    switch (c.cadence) {
-      case 'daily':
-        return 'Every day · earns up to ${c.weightPct.toStringAsFixed(0)}%';
-      case 'weekly':
-        return 'Every week · earns up to ${c.weightPct.toStringAsFixed(0)}%';
-      default:
-        return 'One time · earns ${c.weightPct.toStringAsFixed(0)}%';
-    }
+String _choreMeta(KidChoreCard c) {
+  if (c.isMakeup) return 'Makeup chore · extra check-in';
+  if (c.isBonus) return 'Bonus chore · extra points';
+  switch (c.cadence) {
+    case 'daily':
+      return 'Every day · earns up to ${c.weightPct.toStringAsFixed(0)}%';
+    case 'weekly':
+      return 'Every week · earns up to ${c.weightPct.toStringAsFixed(0)}%';
+    default:
+      return 'One time · earns ${c.weightPct.toStringAsFixed(0)}%';
   }
 }
 
-/// Warm empty state: no active goal yet (parent hasn't set one).
 class _NoGoalCard extends StatelessWidget {
   const _NoGoalCard();
 
@@ -368,7 +477,7 @@ class _NoGoalCard extends StatelessWidget {
             Text('No goal yet',
                 style: Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
             const SizedBox(height: 4),
-            Text(
+            const Text(
               'Ask your parent to set one up.',
               style: TextStyle(fontSize: 13, color: Dmc.muted),
             ),
@@ -379,7 +488,6 @@ class _NoGoalCard extends StatelessWidget {
   }
 }
 
-/// Empty state: goal exists but no chores are assigned today.
 class _NoChoresCard extends StatelessWidget {
   const _NoChoresCard();
 
@@ -404,7 +512,7 @@ class _NoChoresCard extends StatelessWidget {
             Text('All clear today',
                 style: Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
             const SizedBox(height: 4),
-            Text(
+            const Text(
               'New chores appear when your parent adds them.',
               style: TextStyle(fontSize: 13, color: Dmc.muted),
               textAlign: TextAlign.center,
