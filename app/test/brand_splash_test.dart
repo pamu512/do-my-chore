@@ -20,6 +20,8 @@ void main() {
     final image = tester.widget<Image>(find.byKey(const Key('dmc-brand-logo')));
     expect(image.image, isA<AssetImage>());
     expect((image.image as AssetImage).assetName, BrandAssets.logo);
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+        BrandAssets.paper);
   });
 
   testWidgets('auth error screen keeps the official brand logo', (tester) async {
@@ -35,5 +37,7 @@ void main() {
 
     expect(find.byKey(const Key('dmc-brand-logo')), findsOneWidget);
     expect(find.textContaining('Could not reach Supabase'), findsOneWidget);
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+        BrandAssets.paper);
   });
 }

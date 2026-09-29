@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/dmc_theme.dart';
 
@@ -7,6 +8,10 @@ import '../core/dmc_theme.dart';
 /// scripts/gen_brand_icons.py.
 abstract final class BrandAssets {
   static const logo = 'assets/branding/do_my_chore_logo.jpg';
+
+  /// Paper field sampled from the official JPEG edge (median of the outer
+  /// ring). #FDF9F2 was too white and read as a JPEG on a white splash.
+  static const paper = Color(0xFFF5EADF);
 }
 
 class BrandLogo extends StatelessWidget {
@@ -57,38 +62,46 @@ class BrandSplash extends StatelessWidget {
     final logoHeight = message == null
         ? (shortest * 0.72).clamp(280.0, 560.0)
         : (shortest * 0.36).clamp(160.0, 280.0);
-    return Scaffold(
-      backgroundColor: const Color(0xFFFDF9F2),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                BrandLogo(height: logoHeight),
-                if (showProgress) ...[
-                  const SizedBox(height: 28),
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.2),
-                  ),
-                ],
-                if (message != null) ...[
-                  const SizedBox(height: 28),
-                  Text(
-                    message!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: Dmc.text,
-                      fontSize: 14.5,
-                      height: 1.45,
-                      color: Dmc.ink2,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: BrandAssets.paper,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: BrandAssets.paper,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: BrandAssets.paper,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  BrandLogo(height: logoHeight),
+                  if (showProgress) ...[
+                    const SizedBox(height: 28),
+                    const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
                     ),
-                  ),
+                  ],
+                  if (message != null) ...[
+                    const SizedBox(height: 28),
+                    Text(
+                      message!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: Dmc.text,
+                        fontSize: 14.5,
+                        height: 1.45,
+                        color: Dmc.ink2,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
