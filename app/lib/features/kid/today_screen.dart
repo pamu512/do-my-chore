@@ -134,13 +134,14 @@ class KidTodayBody extends StatelessWidget {
       );
     }
 
-    final kinds = chores.map((c) => c.rowKind(now)).toList();
+    final visible = collapseTodayByLibraryId(chores, now: now);
+    final kinds = visible.map((c) => c.rowKind(now)).toList();
     final dayDone = allSent(kinds);
     final g = goals.isNotEmpty ? goals.first : null;
     final behind = g?.kidBehindPace == true;
     final openChores = [
-      for (var i = 0; i < chores.length; i++)
-        if (kinds[i] == KidRowKind.open) chores[i]
+      for (var i = 0; i < visible.length; i++)
+        if (kinds[i] == KidRowKind.open) visible[i]
     ];
     final showPace = behind && openChores.isNotEmpty && !dayDone;
 
@@ -163,12 +164,7 @@ class KidTodayBody extends StatelessWidget {
           KidDayDoneCard(
             movedPct: todayMovedPct(
               chores: [
-                for (final c in chores)
-                  (
-                    weightPct: c.weightPct,
-                    cadence: c.cadence,
-                    latestAt: c.latestCreatedAt,
-                  )
+                for (final c in visible) ...slicesForDayDone(c)
               ],
               weeksN: g?.weeksN ?? 1,
               now: now,
@@ -176,7 +172,7 @@ class KidTodayBody extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 6),
-        if (chores.isEmpty)
+        if (visible.isEmpty)
           const _NoChoresCard()
         else ...[
           Padding(
@@ -196,9 +192,9 @@ class KidTodayBody extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                for (var i = 0; i < chores.length; i++)
+                for (var i = 0; i < visible.length; i++)
                   _KidChoreRow(
-                    chore: chores[i],
+                    chore: visible[i],
                     index: i + 1,
                     kind: kinds[i],
                     onOpen: onOpen,
@@ -443,6 +439,16 @@ class _KidChoreRow extends StatelessWidget {
 String _choreMeta(KidChoreCard c) {
   if (c.isMakeup) return 'Makeup chore · extra check-in';
   if (c.isBonus) return 'Bonus chore · extra points';
+  if (c.sharedGoalCount > 1) {
+    switch (c.cadence) {
+      case 'daily':
+        return 'Every day · counts for ${c.sharedGoalCount} goals';
+      case 'weekly':
+        return 'Every week · counts for ${c.sharedGoalCount} goals';
+      default:
+        return 'One time · counts for ${c.sharedGoalCount} goals';
+    }
+  }
   switch (c.cadence) {
     case 'daily':
       return 'Every day · earns up to ${c.weightPct.toStringAsFixed(0)}%';

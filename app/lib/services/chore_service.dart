@@ -43,6 +43,7 @@ class ChoreService {
   Future<void> submitChore({
     required String choreId,
     String? photoUrl,
+    List<String>? alsoChoreIds,
   }) async {
     final chore = await _kid
         .from('chores')
@@ -53,10 +54,14 @@ class ChoreService {
       requiresPhoto: chore['requires_photo'] == true,
       hasPhoto: photoUrl != null,
     );
-    await _kid.from('chore_submissions').insert({
-      'chore_id': choreId,
-      'photo_url': ?photoUrl,
-    });
+    final ids = <String>{choreId, ...?alsoChoreIds};
+    await _kid.from('chore_submissions').insert([
+      for (final id in ids)
+        {
+          'chore_id': id,
+          'photo_url': ?photoUrl,
+        },
+    ]);
   }
 
   /// Kid uploads a chore photo to the family-prefixed storage path and
@@ -64,6 +69,7 @@ class ChoreService {
   Future<String> uploadAndSubmit({
     required String choreId,
     required String localPhotoPath,
+    List<String>? alsoChoreIds,
   }) async {
     final me = _kid.auth.currentUser?.id;
     final row = await _kid
@@ -74,7 +80,11 @@ class ChoreService {
     final familyId = row['family_id'] as String;
     final path = '$familyId/$choreId-${DateTime.now().millisecondsSinceEpoch}.jpg';
     await _kid.storage.from('chore-photos').upload(path, File(localPhotoPath));
-    await submitChore(choreId: choreId, photoUrl: path);
+    await submitChore(
+      choreId: choreId,
+      photoUrl: path,
+      alsoChoreIds: alsoChoreIds,
+    );
     return path;
   }
 
@@ -94,6 +104,12 @@ class ChoreService {
   /// Parent rejects with a nudge; the chore returns to Kid Today (rejected
   /// submissions are surfaced as retryable), and a retry inserts a new row.
   Future<void> rejectSubmission(String submissionId, String nudge) async {
+    await rejectSubmissions([submissionId], nudge);
+  }
+
+  /// Send-back for a library cluster: one nudge on every pending row.
+  Future<void> rejectSubmissions(List<String> submissionIds, String nudge) async {
+    if (submissionIds.isEmpty) return;
     await _parent
         .from('chore_submissions')
         .update({
@@ -101,6 +117,6 @@ class ChoreService {
           'reject_nudge': nudge,
           'decided_at': DateTime.now().toIso8601String(),
         })
-        .eq('id', submissionId);
+        .inFilter('id', submissionIds);
   }
 }

@@ -11,6 +11,7 @@ const CORS = {
 };
 
 interface ChoreSpec {
+  library_chore_id: string;
   title: string;
   cadence: "once" | "daily" | "weekly";
   weight_pct: number;
@@ -35,19 +36,58 @@ const VISUAL = new Set([
   "Take out the recycling",
 ]);
 
+const LIBRARY: Array<{
+  id: string;
+  title: string;
+  cadence: "once" | "daily" | "weekly";
+  requires_photo: boolean;
+  min_age: number;
+  max_age: number;
+}> = [
+  { id: "make-your-bed", title: "Make your bed", cadence: "daily", requires_photo: true, min_age: 8, max_age: 17 },
+  { id: "wash-the-dishes", title: "Wash the dishes", cadence: "daily", requires_photo: true, min_age: 8, max_age: 17 },
+  { id: "fold-the-laundry", title: "Fold the laundry", cadence: "weekly", requires_photo: true, min_age: 0, max_age: 17 },
+  { id: "plan-the-park-itinerary", title: "Plan the park itinerary", cadence: "once", requires_photo: false, min_age: 8, max_age: 17 },
+  { id: "tidy-your-room", title: "Tidy your room", cadence: "daily", requires_photo: true, min_age: 0, max_age: 7 },
+  { id: "set-and-clear-the-table", title: "Set and clear the table", cadence: "daily", requires_photo: true, min_age: 0, max_age: 7 },
+  { id: "plan-the-week-together", title: "Plan the week together", cadence: "once", requires_photo: false, min_age: 0, max_age: 7 },
+  { id: "clean-the-play-table", title: "Clean the play table", cadence: "daily", requires_photo: true, min_age: 0, max_age: 7 },
+  { id: "vacuum-the-living-room", title: "Vacuum the living room", cadence: "weekly", requires_photo: true, min_age: 8, max_age: 17 },
+  { id: "take-out-the-recycling", title: "Take out the recycling", cadence: "weekly", requires_photo: true, min_age: 8, max_age: 17 },
+];
+
 const CATALOG: ChoreSpec[] = [
-  { title: "Make your bed", cadence: "daily", weight_pct: 40, requires_photo: true, is_makeup: false },
-  { title: "Wash the dishes", cadence: "daily", weight_pct: 30, requires_photo: true, is_makeup: false },
-  { title: "Fold the laundry", cadence: "weekly", weight_pct: 20, requires_photo: true, is_makeup: false },
-  { title: "Plan the park itinerary", cadence: "once", weight_pct: 10, requires_photo: false, is_makeup: false },
+  { library_chore_id: "make-your-bed", title: "Make your bed", cadence: "daily", weight_pct: 40, requires_photo: true, is_makeup: false },
+  { library_chore_id: "wash-the-dishes", title: "Wash the dishes", cadence: "daily", weight_pct: 30, requires_photo: true, is_makeup: false },
+  { library_chore_id: "fold-the-laundry", title: "Fold the laundry", cadence: "weekly", weight_pct: 20, requires_photo: true, is_makeup: false },
+  { library_chore_id: "plan-the-park-itinerary", title: "Plan the park itinerary", cadence: "once", weight_pct: 10, requires_photo: false, is_makeup: false },
 ];
 
 const LITTLE_CATALOG: ChoreSpec[] = [
-  { title: "Tidy your room", cadence: "daily", weight_pct: 40, requires_photo: true, is_makeup: false },
-  { title: "Set and clear the table", cadence: "daily", weight_pct: 30, requires_photo: true, is_makeup: false },
-  { title: "Fold the laundry", cadence: "weekly", weight_pct: 20, requires_photo: true, is_makeup: false },
-  { title: "Plan the week together", cadence: "once", weight_pct: 10, requires_photo: false, is_makeup: false },
+  { library_chore_id: "tidy-your-room", title: "Tidy your room", cadence: "daily", weight_pct: 40, requires_photo: true, is_makeup: false },
+  { library_chore_id: "set-and-clear-the-table", title: "Set and clear the table", cadence: "daily", weight_pct: 30, requires_photo: true, is_makeup: false },
+  { library_chore_id: "fold-the-laundry", title: "Fold the laundry", cadence: "weekly", weight_pct: 20, requires_photo: true, is_makeup: false },
+  { library_chore_id: "plan-the-week-together", title: "Plan the week together", cadence: "once", weight_pct: 10, requires_photo: false, is_makeup: false },
 ];
+
+function libraryForAge(age: number) {
+  return LIBRARY.filter((h) => age >= h.min_age && age <= h.max_age);
+}
+
+function resolveLibraryChore(raw: Partial<ChoreSpec>): ChoreSpec | null {
+  const byId = LIBRARY.find((h) => h.id === raw.library_chore_id);
+  const byTitle = LIBRARY.find((h) => h.title === raw.title);
+  const hit = byId ?? byTitle;
+  if (!hit) return null;
+  return {
+    library_chore_id: hit.id,
+    title: hit.title,
+    cadence: (raw.cadence as ChoreSpec["cadence"]) || hit.cadence,
+    weight_pct: Number(raw.weight_pct) || 0,
+    requires_photo: raw.requires_photo === true,
+    is_makeup: false,
+  };
+}
 
 function round25(v: number): number {
   return Math.round(v * 4) / 4;
@@ -81,13 +121,20 @@ async function buildLlmPlan(
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key) return fallback;
 
+  const allowed = libraryForAge(kidAge);
+  const catalogLines = allowed
+    .map((h) => `- ${h.id}: "${h.title}" (${h.cadence}, photo=${h.requires_photo})`)
+    .join("\n");
   const prompt = `You help a parent plan how a kid earns a goal through habits, while the parent funds the real cost.
 Goal: "${title}", cost $${targetAmount}, deadline in ${weeks} weeks, kid age ${kidAge}.
-Return ONLY JSON: {"weekly_parent_save": number, "chores": [{"title": string, "cadence": "once"|"daily"|"weekly", "weight_pct": number, "requires_photo": boolean, "is_makeup": false}], "why": string}
+Return ONLY JSON: {"weekly_parent_save": number, "chores": [{"library_chore_id": string, "title": string, "cadence": "once"|"daily"|"weekly", "weight_pct": number, "requires_photo": boolean, "is_makeup": false}], "why": string}
 Rules:
-- 4-8 chores; each weight_pct > 0; all weights together sum to at least 100 (a little over is good slack).
+- Pick 4-8 chores ONLY from this library. Use the given library_chore_id exactly. Same habit always uses the same id.
+${catalogLines}
+- Do not invent titles or ids. Do not fuzzy-match.
+- each weight_pct > 0; all weights together sum to at least 100 (a little over is good slack).
 - daily weights around 30-45, weekly around 15-25, at most one once chore.
-- requires_photo ONLY for chores a parent can verify by looking (never for reading/practice/trust chores).
+- requires_photo ONLY when the library says photo=true.
 - weekly_parent_save = about targetAmount / weeks.
 - is_makeup is always false in the initial plan; makeup chores are added by the parent later.
 - "why" is 2-3 sentences in plain parent language. No ML jargon.`;
@@ -107,11 +154,14 @@ Rules:
     const data = await res.json();
     const parsed = JSON.parse(data.choices[0].message.content) as Plan;
     if (!parsed?.chores?.length || !parsed.why) return fallback;
-    const weightSum = parsed.chores.reduce((s, c) => s + (Number(c.weight_pct) || 0), 0);
+    const resolved = parsed.chores.slice(0, 8).map(resolveLibraryChore);
+    if (resolved.some((c) => c == null)) return fallback;
+    const chores = resolved as ChoreSpec[];
+    const weightSum = chores.reduce((s, c) => s + (Number(c.weight_pct) || 0), 0);
     if (weightSum + 1e-9 < 100) return fallback;
     return {
       weekly_parent_save: Number(parsed.weekly_parent_save) || fallback.weekly_parent_save,
-      chores: parsed.chores.slice(0, 8).map((c) => ({ ...c, is_makeup: false })),
+      chores,
       why: parsed.why,
     };
   } catch {

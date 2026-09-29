@@ -70,13 +70,18 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
     if (widget.chore.requiresPhoto && _photoPath == null) return;
     setState(() => _submitting = true);
     try {
+      final also = submissionChoreIds(widget.chore);
       if (widget.chore.requiresPhoto) {
         await widget.service.uploadAndSubmit(
           choreId: widget.chore.id,
           localPhotoPath: _photoPath!,
+          alsoChoreIds: also,
         );
       } else {
-        await widget.service.submitChore(choreId: widget.chore.id);
+        await widget.service.submitChore(
+          choreId: widget.chore.id,
+          alsoChoreIds: also,
+        );
       }
       if (mounted) setState(() => _sent = true);
     } catch (e) {
@@ -92,6 +97,9 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
   /// Per-approval credit preview: weight / expected instances.
   String _creditLine() {
     final c = widget.chore;
+    if (c.sharedGoalCount > 1) {
+      return 'counts for ${c.sharedGoalCount} goals';
+    }
     if (widget.weeksN == null) return 'Adds to your goal progress';
     final expected =
         expectedInstances(cadence: c.cadence, weeksN: widget.weeksN!);
@@ -162,27 +170,40 @@ class MarkDoneView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('THIS CHORE IS WORTH', style: Dmc.micro),
+                  Text(
+                    chore.sharedGoalCount > 1
+                        ? 'THIS HABIT COUNTS FOR'
+                        : 'THIS CHORE IS WORTH',
+                    style: Dmc.micro,
+                  ),
                   const SizedBox(height: 3),
                   Text.rich(
-                    TextSpan(
-                      text: '+${chore.weightPct.toStringAsFixed(0)}%',
-                      style: Dmc.displayStyle(
-                          size: 28,
-                          weight: FontWeight.w700,
-                          color: Dmc.marigoldDeep),
-                      children: [
-                        TextSpan(
-                          text: ' of the goal',
-                          style: TextStyle(
-                            fontFamily: Dmc.text,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Dmc.muted,
+                    chore.sharedGoalCount > 1
+                        ? TextSpan(
+                            text: '${chore.sharedGoalCount} goals',
+                            style: Dmc.displayStyle(
+                                size: 28,
+                                weight: FontWeight.w700,
+                                color: Dmc.marigoldDeep),
+                          )
+                        : TextSpan(
+                            text: '+${chore.weightPct.toStringAsFixed(0)}%',
+                            style: Dmc.displayStyle(
+                                size: 28,
+                                weight: FontWeight.w700,
+                                color: Dmc.marigoldDeep),
+                            children: [
+                              TextSpan(
+                                text: ' of the goal',
+                                style: TextStyle(
+                                  fontFamily: Dmc.text,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Dmc.muted,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
