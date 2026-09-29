@@ -4,6 +4,7 @@ import '../../core/dmc_theme.dart';
 import '../../services/chore_service.dart';
 import '../../services/chore_progress_math.dart';
 import '../../services/queries.dart';
+import 'send_back_sheet.dart';
 
 /// Parent approval inbox: AI photo assist suggests, the parent decides.
 /// Cards show the percent credit this approval adds, never dollars.
@@ -73,7 +74,27 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   Future<void> _reject(PendingApproval p) async {
-    final nudge = rejectNudge(choreTitle: p.choreTitle);
+    final initial = rejectNudge(choreTitle: p.choreTitle);
+    if (!mounted) return;
+    final note = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+          child: SendBackSheet(
+            kidName: 'Arjun',
+            choreTitle: p.choreTitle,
+            initialNote: initial,
+            onCancel: () => Navigator.pop(ctx),
+            onConfirm: (n) => Navigator.pop(ctx, n),
+          ),
+        );
+      },
+    );
+    if (note == null || !mounted) return;
+    final nudge = rejectNudge(choreTitle: p.choreTitle, parentNote: note);
     setState(() => _decided.add(p.submissionId));
     try {
       await widget.service.rejectSubmission(p.submissionId, nudge);
@@ -81,7 +102,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       if (mounted) {
         setState(() => _decided.remove(p.submissionId));
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not reject: $e')));
+            SnackBar(content: Text('Could not send back: $e')));
       }
       return;
     }
@@ -89,7 +110,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     await _refresh();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Sent back to Arjun with a nudge to try again.'),
+        content: const Text('Sent back to Arjun with a note.'),
         action: SnackBarAction(
           label: 'OK',
           onPressed: () {},
@@ -284,7 +305,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                         side: const BorderSide(color: Color(0xFFE3C4BA)),
                       ),
                       icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Reject with nudge',
+                      label: const Text('Send back',
                           overflow: TextOverflow.ellipsis),
                     ),
                   ),
