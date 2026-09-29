@@ -148,6 +148,12 @@ void main() {
       );
     });
 
+    test('parent Home rail cap is path, not pressure', () {
+      expect(parentRailRightCap(), 'path to 100%');
+      expect(parentRailRightCap().toLowerCase(), isNot(contains('earns')));
+      expect(parentRailRightCap().contains('\u2014'), isFalse);
+    });
+
     test('slow hero keeps the trip put; kid_item uses reward', () {
       expect(
         kidHeroLine(behindPace: true, goalMode: 'family_trip'),
