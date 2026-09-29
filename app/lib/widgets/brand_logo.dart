@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../core/dmc_theme.dart';
 
-/// Paths for Anoop's official lockup. The JPEG is the in-app source of truth;
-/// launcher icons are a square crop of the pill (see scripts/gen_brand_icons.py).
+/// Paths for Anoop's official lockup JPEG (source pixels, not a redraw).
+/// Launcher icons are a square crop of the left capsule — see
+/// scripts/gen_brand_icons.py.
 abstract final class BrandAssets {
   static const logo = 'assets/branding/do_my_chore_logo.jpg';
 }
