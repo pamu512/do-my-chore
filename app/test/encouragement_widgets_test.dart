@@ -37,6 +37,19 @@ void main() {
     ));
     await tester.pump();
     expect(find.byKey(const Key('dmc-confetti')), findsNothing);
+    expect(find.byKey(const Key('dmc-confetti-chip-0')), findsNothing);
+  });
+
+  testWidgets('day-done confetti bursts when motion is allowed', (tester) async {
+    await tester.pumpWidget(_wrap(const KidDayDoneCard(movedPct: 1.2)));
+    expect(find.byKey(const Key('dmc-confetti')), findsOneWidget);
+    final chip = find.byKey(const Key('dmc-confetti-chip-0'));
+    expect(chip, findsOneWidget);
+    final first = tester.getTopLeft(chip);
+    await tester.pump(const Duration(milliseconds: 250));
+    final later = tester.getTopLeft(chip);
+    expect(later.dy, greaterThan(first.dy));
+    expect(find.textContaining(r'$'), findsNothing);
   });
 
   testWidgets('pace card is path copy only', (tester) async {

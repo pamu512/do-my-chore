@@ -107,7 +107,7 @@ class KidDayDoneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduce = MediaQuery.of(context).disableAnimations;
+    final reduce = MediaQuery.disableAnimationsOf(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
@@ -183,39 +183,90 @@ class KidDayDoneCard extends StatelessWidget {
   }
 }
 
-class _SoftConfetti extends StatelessWidget {
+class _SoftConfetti extends StatefulWidget {
   const _SoftConfetti({super.key});
 
   @override
+  State<_SoftConfetti> createState() => _SoftConfettiState();
+}
+
+class _SoftConfettiState extends State<_SoftConfetti>
+    with SingleTickerProviderStateMixin {
+  static const _colors = [
+    Dmc.marigold,
+    Color(0xFF2F8F83),
+    Color(0xFFE8A33D),
+    Dmc.pine,
+    Dmc.clay,
+  ];
+
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // KidDayDoneCard omits this widget when disableAnimations / reduce-motion
+    // is on. One-shot burst; no loop.
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const colors = [
-      Dmc.marigold,
-      Color(0xFF2F8F83),
-      Color(0xFFE8A33D),
-      Dmc.pine,
-      Dmc.clay,
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final rng = math.Random(7);
-        return Stack(
-          children: [
-            for (var i = 0; i < 14; i++)
-              Positioned(
-                left: constraints.maxWidth * (0.06 + rng.nextDouble() * 0.88),
-                top: 4 + rng.nextDouble() * 28,
-                child: Container(
-                  width: 7,
-                  height: 11,
-                  decoration: BoxDecoration(
-                    color: colors[i % colors.length].withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-          ],
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return const SizedBox.shrink();
+    }
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final t = Curves.easeOutCubic.transform(_ctrl.value);
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final rng = math.Random(7);
+            return Stack(
+              children: [
+                for (var i = 0; i < 14; i++)
+                  _chip(i, constraints, rng, t),
+              ],
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _chip(int i, BoxConstraints constraints, math.Random rng, double t) {
+    final leftFrac = 0.06 + rng.nextDouble() * 0.88;
+    final startTop = 4.0 + rng.nextDouble() * 28;
+    final fall = 18 + rng.nextDouble() * 16;
+    final drift = (rng.nextDouble() - 0.5) * 18;
+    final spin = (rng.nextDouble() - 0.5) * 0.9;
+    return Positioned(
+      key: Key('dmc-confetti-chip-$i'),
+      left: constraints.maxWidth * leftFrac + drift * t,
+      top: startTop + fall * t,
+      child: Opacity(
+        opacity: (0.7 - t * 0.25).clamp(0.2, 0.7),
+        child: Transform.rotate(
+          angle: spin * t,
+          child: Container(
+            width: 7,
+            height: 11,
+            decoration: BoxDecoration(
+              color: _colors[i % _colors.length].withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -108,6 +108,9 @@ String kidHeroLine({required bool behindPace, required String goalMode}) {
   return 'Every check-in moves it. The $noun stays put.';
 }
 
+/// Parent Home rail only. Path/progress, not a carrot. Kid rail stays "100%".
+String parentRailRightCap() => 'path to 100%';
+
 const _ones = {
   1: 'One',
   2: 'Two',

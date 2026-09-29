@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/dmc_theme.dart';
 import '../../services/album_service.dart';
 import '../../services/chore_service.dart';
+import '../../services/encouragement.dart';
 import '../../services/goal_service.dart';
 import '../../services/queries.dart';
 import 'album_screen.dart';
@@ -356,8 +357,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
               pct: g.choreProgressPct,
               isKid: false,
               leftCap: '0%',
-              rightCap: '100% earns the '
-                  '${g.goalMode == 'family_trip' ? 'trip' : 'reward'}',
+              rightCap: parentRailRightCap(),
             ),
             const SizedBox(height: 4),
             Row(
