@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:do_my_chore/services/encouragement.dart';
+import 'package:do_my_chore/services/queries.dart';
 
 void main() {
   final monday = DateTime(2026, 9, 28, 10); // Monday
@@ -212,5 +213,20 @@ void main() {
         expect(s.contains('\u2014'), isFalse, reason: s);
       }
     });
+  });
+
+  test('KidChoreCard.rowKind uses latest fields', () {
+    final card = KidChoreCard(
+      id: 'c1',
+      title: 'Make your bed',
+      cadence: 'daily',
+      weightPct: 40,
+      requiresPhoto: true,
+      isMakeup: false,
+      isBonus: false,
+      latestStatus: 'pending',
+      latestCreatedAt: DateTime(2026, 9, 28),
+    );
+    expect(card.rowKind(DateTime(2026, 9, 28)), KidRowKind.sent);
   });
 }
