@@ -49,6 +49,10 @@ class BrandSplash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shortest = MediaQuery.sizeOf(context).shortestSide;
+    // The official JPEG is a square with a large cream field; size the
+    // widget so the pill + wordmark stay readable on phone and desktop.
+    final logoHeight = (shortest * 0.72).clamp(280.0, 560.0);
     return Scaffold(
       backgroundColor: const Color(0xFFFDF9F2),
       body: SafeArea(
@@ -58,7 +62,7 @@ class BrandSplash extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const BrandLogo(height: 240),
+                BrandLogo(height: logoHeight),
                 if (showProgress) ...[
                   const SizedBox(height: 28),
                   const SizedBox(
