@@ -54,7 +54,7 @@ insert into public.chores (id, goal_id, kid_id, title, cadence, weight_pct, requ
   ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-0000000000b1',
    '00000000-0000-0000-0000-0000000000a2', 'Fold the laundry', 'weekly', 20.00, true, false, false, 'fold-the-laundry'),
   ('00000000-0000-0000-0000-0000000000c4', '00000000-0000-0000-0000-0000000000b1',
-   '00000000-0000-0000-0000-0000000000a2', 'Plan the park itinerary', 'once', 10.00, false, false, 'plan-the-park-itinerary');
+   '00000000-0000-0000-0000-0000000000a2', 'Plan the park itinerary', 'once', 10.00, false, false, false, 'plan-the-park-itinerary');
 
 -- accepted AI plan: parent save cadence + kid weights (no dollar rewards)
 insert into public.ai_plans (goal_id, family_id, suggestion, accepted, source) values
