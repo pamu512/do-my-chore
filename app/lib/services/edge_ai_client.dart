@@ -240,7 +240,7 @@ extension GoalServiceAi on GoalService {
     String goalMode = 'kid_item',
   }) async {
     final weeks = weeksUntil(targetDate);
-    final local = () => localGoalFirstSuggest(
+    SuggestPlanResult local() => localGoalFirstSuggest(
           title: title,
           targetAmount: targetAmount,
           weeks: weeks,
