@@ -171,7 +171,7 @@ void main() {
       expect(
         kidRowKind(
           latestStatus: 'approved',
-          latestAt: DateTime(2026, 9, 27, 9), // Sunday of same week
+          latestAt: DateTime(2026, 10, 3, 9), // Saturday of ISO week 40 (Mon 28 Sep). Sunday 27 Sep is week 39.
           cadence: 'weekly',
           now: monday,
         ),
