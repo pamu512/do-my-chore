@@ -91,9 +91,9 @@ void main() {
         weeklyParentSave: 250,
         why: 'why',
         chores: const [
-          ChoreSpec(title: 'Make your bed', cadence: 'daily', weightPct: 40, requiresPhoto: true),
-          ChoreSpec(title: 'Wash the dishes', cadence: 'daily', weightPct: 30, requiresPhoto: true),
-          ChoreSpec(title: 'Fold the laundry', cadence: 'weekly', weightPct: 20, requiresPhoto: true),
+          ChoreSpec(title: 'Make your bed', cadence: 'daily', weightPct: 40, requiresPhoto: true, libraryChoreId: 'make-your-bed'),
+          ChoreSpec(title: 'Wash the dishes', cadence: 'daily', weightPct: 30, requiresPhoto: true, libraryChoreId: 'wash-the-dishes'),
+          ChoreSpec(title: 'Fold the laundry', cadence: 'weekly', weightPct: 20, requiresPhoto: true, libraryChoreId: 'fold-the-laundry'),
           ChoreSpec(
               title: 'Emergency catch-up sweep',
               cadence: 'once',

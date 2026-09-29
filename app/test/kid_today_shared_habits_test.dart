@@ -73,6 +73,7 @@ void main() {
         ),
       ),
     ));
+    await tester.scrollUntilVisible(find.text('Make your bed'), 240);
     expect(find.text('Make your bed'), findsOneWidget);
     expect(find.textContaining('counts for 2 goals'), findsOneWidget);
     expect(find.textContaining(r'$'), findsNothing);
