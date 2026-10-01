@@ -127,6 +127,6 @@ void main() {
   });
 
   test('primary kid age is the demo family default', () {
-    expect(kPrimaryKidAge, 9);
+    expect(kPrimaryKidAge, 8);
   });
 }

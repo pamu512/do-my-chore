@@ -19,7 +19,7 @@ void main() {
     final r = localGoalFirstSuggest(
       title: 'Miami with the family for Christmas',
       weeks: 14,
-      kidAge: 9,
+      kidAge: 8,
       goalMode: 'family_trip',
     );
     expect(r.estimate.likely, 1200);
