@@ -15,10 +15,10 @@ const FALLBACK_PLAN = {
   weekly_parent_save: 100,
   why: "Parent funds the real cost.",
   chores: [
-    { title: "Make your bed", cadence: "daily" as const, weight_pct: 40, requires_photo: true, is_makeup: false },
-    { title: "Wash the dishes", cadence: "daily" as const, weight_pct: 30, requires_photo: true, is_makeup: false },
-    { title: "Fold the laundry", cadence: "weekly" as const, weight_pct: 20, requires_photo: true, is_makeup: false },
-    { title: "Plan the week together", cadence: "once" as const, weight_pct: 10, requires_photo: false, is_makeup: false },
+    { library_chore_id: "make-your-bed", title: "Make your bed", cadence: "daily" as const, weight_pct: 40, requires_photo: true, is_makeup: false },
+    { library_chore_id: "wash-the-dishes", title: "Wash the dishes", cadence: "daily" as const, weight_pct: 30, requires_photo: true, is_makeup: false },
+    { library_chore_id: "fold-the-laundry", title: "Fold the laundry", cadence: "weekly" as const, weight_pct: 20, requires_photo: true, is_makeup: false },
+    { library_chore_id: "plan-the-week-together", title: "Plan the week together", cadence: "once" as const, weight_pct: 10, requires_photo: false, is_makeup: false },
   ],
 };
 
@@ -98,10 +98,10 @@ Deno.test("validatePlanOutput rejects a plan with an unsafe chore title", () => 
     weekly_parent_save: 100,
     why: "A plan.",
     chores: [
-      { title: "Make your bed", cadence: "daily", weight_pct: 40, requires_photo: true },
-      { title: "https://evil.example", cadence: "daily", weight_pct: 30, requires_photo: true },
-      { title: "Fold the laundry", cadence: "weekly", weight_pct: 20, requires_photo: true },
-      { title: "Plan the week together", cadence: "once", weight_pct: 10, requires_photo: false },
+      { library_chore_id: "make-your-bed", title: "Make your bed", cadence: "daily", weight_pct: 40, requires_photo: true },
+      { library_chore_id: "wash-the-dishes", title: "https://evil.example", cadence: "daily", weight_pct: 30, requires_photo: true },
+      { library_chore_id: "fold-the-laundry", title: "Fold the laundry", cadence: "weekly", weight_pct: 20, requires_photo: true },
+      { library_chore_id: "plan-the-week-together", title: "Plan the week together", cadence: "once", weight_pct: 10, requires_photo: false },
     ],
   };
   assertEquals(validatePlanOutput(raw, FALLBACK_PLAN), null);

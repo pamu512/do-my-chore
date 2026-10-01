@@ -168,7 +168,7 @@ export function allowedPromptFields(input: Record<string, unknown>): AllowedProm
   const weeks = Number(input.weeks);
   return {
     goalText,
-    kidAge: kidAge > 0 ? Math.round(kidAge) : 8,
+    kidAge: kidAge > 0 ? Math.round(kidAge) : 9, // matches app kPrimaryKidAge
     weeks: weeks > 0 ? Math.round(weeks) : 12,
     goal_mode: inferGoalMode(goalText, input.goalMode ?? input.goal_mode),
   };

@@ -128,6 +128,15 @@ export function validatePlanOutput(
   });
   if (mapped.some((c) => c == null)) return null;
   const choresOut = mapped as ChoreSpec[];
+  // The library row supplies the canonical title, but a payload title that
+  // is present, safe-shaped, and DIFFERENT from the library title means the
+  // model tried to smuggle text under a valid id - reject the whole plan.
+  if (
+    choresOut.some((c, i) => {
+      const given = String((chores[i] as Record<string, unknown>)?.title ?? "").trim();
+      return given !== c.title && !isSafeChoreTitle(given);
+    })
+  ) return null;
   if (choresOut.some((c) => !isSafeChoreTitle(c.title))) return null;
   const weightSum = choresOut.reduce((s, c) => s + c.weight_pct, 0);
   if (weightSum + 1e-9 < 100) return null;
