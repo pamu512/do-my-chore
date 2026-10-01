@@ -47,8 +47,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   Future<void> _refresh() async {
+    List<PendingApproval> pending = const [];
     try {
-      final pending = collapsePendingByLibraryId(
+      pending = collapsePendingByLibraryId(
         await widget.service.pendingForParent(),
       );
       if (mounted) {
@@ -65,6 +66,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           _error = 'Could not load approvals. Pull to retry.';
         });
       }
+      return;
     }
     for (final p in pending) {
       if (!p.requiresPhoto) continue;
