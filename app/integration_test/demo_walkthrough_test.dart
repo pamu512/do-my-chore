@@ -171,11 +171,12 @@ void main() {
     // ---- Beat 9: Goal Album ----
     await tester.tap(find.text('Parent'));
     await _settle(tester);
-    // Seed an album item so delete is visible (UI has no add control)
-    await _seedAlbumItem();
+    // Beat 6's approve filed the bed photo into the album (approve path
+    // wires AlbumService.addToAlbum; no REST seeding anymore).
     await tester.tap(find.text('Goal Album').first);
     await _settle(tester, 1500);
     expect(find.text('Goal Album'), findsWidgets);
+    expect(find.text('Make your bed'), findsWidgets);
     // Delete if present
     final del = find.byTooltip('Delete from album');
     if (del.evaluate().isNotEmpty) {
@@ -226,28 +227,3 @@ Future<void> _archiveGoalByTitle(String title) async {
   await req.close();
 }
 
-Future<void> _seedAlbumItem() async {
-  const url = String.fromEnvironment('SUPABASE_URL');
-  const anon = String.fromEnvironment('SUPABASE_ANON_KEY');
-  if (url.isEmpty || anon.isEmpty) return;
-
-  final login = await HttpClient().postUrl(Uri.parse('$url/auth/v1/token?grant_type=password'));
-  login.headers.set('apikey', anon);
-  login.headers.set('Content-Type', 'application/json');
-  login.add(utf8.encode(jsonEncode({'email': 'parent@demo', 'password': 'demo1234'})));
-  final loginRes = await login.close();
-  final loginBody = jsonDecode(await loginRes.transform(utf8.decoder).join()) as Map;
-  final token = loginBody['access_token'] as String;
-
-  final req = await HttpClient().postUrl(Uri.parse('$url/rest/v1/album_items'));
-  req.headers.set('apikey', anon);
-  req.headers.set('Authorization', 'Bearer $token');
-  req.headers.set('Content-Type', 'application/json');
-  req.headers.set('Prefer', 'return=minimal');
-  req.add(utf8.encode(jsonEncode({
-    'goal_id': '00000000-0000-0000-0000-0000000000b1',
-    'photo_url': 'demo/seed-album.jpg',
-    'caption': 'Demo album photo',
-  })));
-  await req.close();
-}

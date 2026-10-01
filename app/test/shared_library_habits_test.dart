@@ -291,4 +291,102 @@ void main() {
       expect(clusterSubmissionIds(cards[0]), ['s1']);
     });
   });
+
+  group('album seeds on approve', () {
+    PendingApproval pending({
+      required String id,
+      String? photo,
+      String? goalId,
+      String? libraryId,
+      String title = 'Make your bed',
+    }) {
+      return PendingApproval(
+        submissionId: id,
+        choreTitle: title,
+        cadence: 'daily',
+        weightPct: 40,
+        requiresPhoto: true,
+        photoUrl: photo,
+        libraryChoreId: libraryId,
+        goalId: goalId,
+      );
+    }
+
+    test('single photographed card seeds its own goal', () {
+      final seeds = albumSeedsForApproval(
+          pending(id: 's1', photo: 'fam/bed.jpg', goalId: 'g1'));
+      expect(seeds.length, 1);
+      expect(seeds.single.goalId, 'g1');
+      expect(seeds.single.photoUrl, 'fam/bed.jpg');
+      expect(seeds.single.submissionId, 's1');
+      expect(seeds.single.caption, 'Make your bed');
+    });
+
+    test('shared-habit cluster seeds every photographed member goal', () {
+      // Two goals share the bed habit; the approve RPC fans out to both,
+      // so both photos must land in their own goal's album.
+      final cards = collapsePendingByLibraryId([
+        pending(
+            id: 's1',
+            photo: 'fam/bed-disney.jpg',
+            goalId: 'g-disney',
+            libraryId: 'make-your-bed'),
+        pending(
+            id: 's2',
+            photo: 'fam/bed-ice.jpg',
+            goalId: 'g-ice',
+            libraryId: 'make-your-bed'),
+      ]);
+      final seeds = albumSeedsForApproval(cards.single);
+      expect(seeds.map((s) => s.goalId).toList(), ['g-disney', 'g-ice']);
+      expect(seeds.map((s) => s.submissionId).toList(), ['s1', 's2']);
+    });
+
+    test('no-photo card and members without photos seed nothing', () {
+      final plain = albumSeedsForApproval(
+          pending(id: 's1', photo: null, goalId: 'g1', libraryId: null));
+      expect(plain, isEmpty);
+
+      final cards = collapsePendingByLibraryId([
+        pending(id: 's1', photo: null, goalId: 'g1', libraryId: 'make-your-bed'),
+        pending(
+            id: 's2',
+            photo: 'fam/bed-ice.jpg',
+            goalId: 'g2',
+            libraryId: 'make-your-bed'),
+      ]);
+      final seeds = albumSeedsForApproval(cards.single);
+      expect(seeds.map((s) => s.submissionId).toList(), ['s2']);
+    });
+
+    test('missing goal attribution seeds nothing (no orphan album rows)', () {
+      final seeds =
+          albumSeedsForApproval(pending(id: 's1', photo: 'fam/bed.jpg'));
+      expect(seeds, isEmpty);
+    });
+
+    test('same (goal, photo) pair dedupes', () {
+      final cards = collapsePendingByLibraryId([
+        pending(
+            id: 's1',
+            photo: 'fam/bed.jpg',
+            goalId: 'g1',
+            libraryId: 'make-your-bed'),
+        pending(
+            id: 's2',
+            photo: 'fam/bed.jpg',
+            goalId: 'g1',
+            libraryId: 'make-your-bed'),
+      ]);
+      final seeds = albumSeedsForApproval(cards.single);
+      expect(seeds.length, 1);
+      expect(seeds.single.submissionId, 's1');
+    });
+
+    test('unmerged card without members still seeds from itself', () {
+      final seeds = albumSeedsForApproval(
+          pending(id: 's9', photo: 'fam/dishes.jpg', goalId: 'g1'));
+      expect(seeds.single.photoUrl, 'fam/dishes.jpg');
+    });
+  });
 }
