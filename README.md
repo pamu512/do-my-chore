@@ -20,7 +20,7 @@ The kid earns the goal through weighted habit chores - a percent bar, never doll
 - **Flutter** (iOS simulator primary) - Parent ↔ Kid role switch on one seeded demo family
 - **Supabase** - Auth, Postgres with **RLS on every family-scoped table**, Storage (family-scoped paths) for photos, Edge Functions for AI
 - **Progress is derived, not stored** - the kid's % comes from approved submissions × per-check-in credits (`weight / expected instances`); no denormalized balance
-- **Both AI moments** (**Suggest plan**, **Photo assist**) run deterministically with **zero API keys**; set `OPENAI_API_KEY` to upgrade them. The AI suggests; the parent is always final.
+- **Both AI moments** (**Suggest plan**, **Photo assist**) run deterministically with **zero API keys**; set `OPENAI_API_KEY` to upgrade them. The AI suggests; the parent is always final. Optional Nebius Token Factory + Tavily secrets are documented in [`docs/nebius-token-factory.md`](docs/nebius-token-factory.md) and are **never required for Basics**.
 
 ## Run it
 
@@ -70,7 +70,7 @@ These are **demo-only credentials for a local instance** — never reuse them an
 
 ```
 app/          Flutter app (lib/features/{parent,kid,shell}, services, models)
-supabase/     config.toml, migrations/, seed.sql, functions/{suggest-plan,photo-assist}
+supabase/     config.toml, migrations/, seed.sql, functions/{suggest-plan,photo-assist,goal-cost-orchestrate,_shared}
 docs/         design spec, implementation plan, demo script
 ```
 
