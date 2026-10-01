@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/dmc_theme.dart';
+import '../../services/album_service.dart';
 import '../../services/chore_service.dart';
 import '../../services/chore_progress_math.dart';
 import '../../services/queries.dart';
@@ -8,10 +9,20 @@ import 'send_back_sheet.dart';
 
 /// Parent approval inbox: AI photo assist suggests, the parent decides.
 /// Cards show the percent credit this approval adds, never dollars.
+/// Approving a photographed submission also files it into that goal's
+/// Goal Album, so the album fills without any manual seeding.
 class ApprovalsScreen extends StatefulWidget {
-  const ApprovalsScreen({super.key, required this.service, this.weeksN});
+  const ApprovalsScreen({
+    super.key,
+    required this.service,
+    this.albumService,
+    this.weeksN,
+  });
 
   final ChoreService service;
+
+  /// Files approved photos into the Goal Album; null (no backend) skips it.
+  final AlbumService? albumService;
 
   /// Weeks remaining on the goal, for the credit preview.
   final int? weeksN;
@@ -78,8 +89,36 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       }
       return;
     }
+    await _fileAlbumSeeds(p);
     await Future<void>.delayed(const Duration(milliseconds: 420));
     await _refresh();
+  }
+
+  /// Approved photos file into the Goal Album. Runs only after the approve
+  /// RPC succeeded, so nothing unapproved is ever filed. One failed insert
+  /// must not drop the others: each seed is tried on its own.
+  Future<void> _fileAlbumSeeds(PendingApproval p) async {
+    final album = widget.albumService;
+    if (album == null) return;
+    final failures = <String>[];
+    for (final seed in albumSeedsForApproval(p)) {
+      try {
+        await album.addToAlbum(
+          goalId: seed.goalId,
+          photoUrl: seed.photoUrl,
+          submissionId: seed.submissionId,
+          caption: seed.caption,
+        );
+      } catch (_) {
+        failures.add(seed.submissionId);
+      }
+    }
+    if (failures.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Approved, but ${failures.length} photo${failures.length == 1 ? '' : 's'} '
+              'could not be added to the album.')));
+    }
   }
 
   Future<void> _reject(PendingApproval p) async {

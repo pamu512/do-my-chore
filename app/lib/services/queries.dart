@@ -4,6 +4,15 @@ import 'encouragement.dart';
 import 'goal_service.dart';
 import 'ledger_math.dart';
 
+/// One Goal Album insert implied by an approval: the photo, the goal it
+/// belongs to, the submission that produced it, and the caption to show.
+typedef AlbumSeed = ({
+  String goalId,
+  String photoUrl,
+  String submissionId,
+  String caption,
+});
+
 class KidChoreCard {
   final String id;
   final String title;
@@ -66,7 +75,13 @@ class PendingApproval {
   final bool requiresPhoto;
   final String? photoUrl;
   final String? libraryChoreId;
+
+  /// Goal the submission's chore belongs to; drives album attribution.
+  final String? goalId;
   final List<String> sharedSubmissionIds;
+
+  /// Full rows behind a merged library card; empty for an unmerged card.
+  final List<PendingApproval> members;
 
   const PendingApproval({
     required this.submissionId,
@@ -76,7 +91,9 @@ class PendingApproval {
     required this.requiresPhoto,
     this.photoUrl,
     this.libraryChoreId,
+    this.goalId,
     this.sharedSubmissionIds = const [],
+    this.members = const [],
   });
 
   int get sharedGoalCount =>
@@ -129,16 +146,22 @@ extension ChoreServiceQueries on ChoreService {
     }).toList();
   }
 
-  /// Parent approval inbox: pending submissions with chore info and the %
-  /// credit this approval would add.
+  /// Parent approval inbox: pending submissions on active goals with chore
+  /// info and the % credit this approval would add. Active-goal filter
+  /// mirrors the approve RPC's fan-out scope, so what the parent sees as
+  /// one card is exactly the set of submissions the RPC will approve.
   Future<List<PendingApproval>> pendingForParent() async {
     final rows = await parentClient
         .from('chore_submissions')
-        .select('id, photo_url, chore_id, chores(title, cadence, weight_pct, requires_photo, library_chore_id)')
+        .select('id, photo_url, chore_id, '
+            'chores(title, cadence, weight_pct, requires_photo, library_chore_id, '
+            'goals!inner(status, id))')
         .eq('status', 'pending')
+        .eq('chores.goals.status', 'active')
         .order('created_at');
     return rows.map<PendingApproval>((row) {
       final chore = row['chores'] as Map<String, dynamic>;
+      final goal = chore['goals'] as Map<String, dynamic>;
       return PendingApproval(
         submissionId: row['id'] as String,
         choreTitle: chore['title'] as String,
@@ -147,6 +170,7 @@ extension ChoreServiceQueries on ChoreService {
         requiresPhoto: chore['requires_photo'] == true,
         photoUrl: row['photo_url'] as String?,
         libraryChoreId: chore['library_chore_id'] as String?,
+        goalId: goal['id'] as String,
       );
     }).toList();
   }
@@ -442,11 +466,39 @@ PendingApproval _mergePending(List<PendingApproval> members, String libraryId) {
             .map((m) => m.photoUrl)
             .firstWhere((u) => u != null, orElse: () => null),
     libraryChoreId: libraryId,
+    goalId: lead.goalId,
     sharedSubmissionIds: [for (final m in members) m.submissionId],
+    members: members,
   );
 }
 
 List<String> clusterSubmissionIds(PendingApproval p) {
   if (p.sharedSubmissionIds.isEmpty) return [p.submissionId];
   return [for (final id in {p.submissionId, ...p.sharedSubmissionIds}) id];
+}
+
+/// Photos that land in the Goal Album when this card is approved: every
+/// photographed member of the cluster (the RPC approves them all), each
+/// attributed to its own goal, deduplicated per (goal, photo) so a retry
+/// that somehow re-approves cannot double-file. Unphotographed and
+/// custom-goalless rows seed nothing. Pure: unit-testable without a backend.
+List<AlbumSeed> albumSeedsForApproval(PendingApproval p) {
+  final members = p.members.isEmpty ? [p] : p.members;
+  final seen = <String>{};
+  final seeds = <AlbumSeed>[];
+  for (final m in members) {
+    final photo = m.photoUrl;
+    final goalId = m.goalId;
+    if (photo == null || photo.isEmpty || goalId == null || goalId.isEmpty) {
+      continue;
+    }
+    if (!seen.add('$goalId\u0000$photo')) continue;
+    seeds.add((
+      goalId: goalId,
+      photoUrl: photo,
+      submissionId: m.submissionId,
+      caption: m.choreTitle,
+    ));
+  }
+  return seeds;
 }

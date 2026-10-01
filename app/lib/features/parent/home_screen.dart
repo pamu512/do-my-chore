@@ -179,6 +179,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
             MaterialPageRoute(
               builder: (_) => ApprovalsScreen(
                 service: widget.choreService!,
+                albumService: widget.albumService,
                 weeksN: _goals.isNotEmpty ? _goals.first.weeksN : null,
               ),
             ),
