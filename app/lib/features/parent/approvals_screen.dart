@@ -41,6 +41,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   final Map<String, Future<String>> _photoFutures = {};
 
   @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
   void dispose() {
     _photoFutures.clear();
     super.dispose();
