@@ -151,6 +151,10 @@ extension ChoreServiceQueries on ChoreService {
   /// mirrors the approve RPC's fan-out scope, so what the parent sees as
   /// one card is exactly the set of submissions the RPC will approve.
   Future<List<PendingApproval>> pendingForParent() async {
+    final override = pendingForParentOverride;
+    if (override != null) {
+      return List<PendingApproval>.from(await override());
+    }
     final rows = await parentClient
         .from('chore_submissions')
         .select('id, photo_url, chore_id, '

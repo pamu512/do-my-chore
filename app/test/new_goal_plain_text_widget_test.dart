@@ -35,8 +35,17 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final parent = SupabaseClient('http://127.0.0.1:54321', 'test-anon-key');
-    final kid = SupabaseClient('http://127.0.0.1:54321', 'test-anon-key');
+    const authOptions = AuthClientOptions(autoRefreshToken: false);
+    final parent = SupabaseClient(
+      'http://127.0.0.1:54321',
+      'test-anon-key',
+      authOptions: authOptions,
+    );
+    final kid = SupabaseClient(
+      'http://127.0.0.1:54321',
+      'test-anon-key',
+      authOptions: authOptions,
+    );
     // Cancel GoTrue periodic timers before the test binding checks invariants.
     parent.auth.stopAutoRefresh();
     kid.auth.stopAutoRefresh();
@@ -109,4 +118,150 @@ void main() {
     parent.auth.stopAutoRefresh();
     kid.auth.stopAutoRefresh();
   });
+
+  testWidgets('target date is not an editable text field', (tester) async {
+    final handle = tester.ensureSemantics();
+    try {
+      final service = _goalService();
+      final anchor = DateTime.now().add(const Duration(days: 98));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en', 'US'),
+          home: NewGoalScreen(goalService: service),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == 'Target date',
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('target-date-field')),
+          matching: find.byType(EditableText),
+        ),
+        findsNothing,
+      );
+      expect(find.byType(TextField), findsNWidgets(2));
+
+      final shown = _mediumDate(tester, anchor);
+      expect(find.text(shown), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byKey(const Key('target-date-field'))),
+        isSemantics(
+          label: 'Target date',
+          value: shown,
+          isButton: true,
+        ),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    } finally {
+      handle.dispose();
+    }
+  });
+
+  testWidgets('picking a target date feeds suggest plan', (tester) async {
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final service = _goalService();
+    final anchor = DateTime.now().add(const Duration(days: 98));
+    final day = anchor.day == 15 ? 14 : 15;
+    final expected = DateTime.utc(anchor.year, anchor.month, day);
+    DateTime? seen;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en', 'US'),
+        home: NewGoalScreen(
+          goalService: service,
+          suggestPlan: ({
+            required String title,
+            double? targetAmount,
+            required DateTime targetDate,
+            required int kidAge,
+            required String goalMode,
+          }) async {
+            seen = targetDate;
+            return localGoalFirstSuggest(
+              title: title,
+              targetAmount: targetAmount,
+              weeks: 14,
+              kidAge: kidAge,
+              goalMode: goalMode,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('target-date-field')));
+    await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+
+    final cell = find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.text('$day'),
+    );
+    expect(cell, findsWidgets);
+    await tester.tap(cell.last);
+    await tester.pumpAndSettle();
+    final ok = MaterialLocalizations.of(
+      tester.element(find.byType(DatePickerDialog)),
+    ).okButtonLabel;
+    await tester.tap(find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.text(ok),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DatePickerDialog), findsNothing);
+    final shown = _mediumDate(tester, expected);
+    expect(find.text(shown), findsOneWidget);
+
+    await tester.tap(find.text('Suggest plan'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(seen, expected);
+    expect(find.textContaining('Could not build plan'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+}
+
+GoalService _goalService() {
+  const authOptions = AuthClientOptions(autoRefreshToken: false);
+  final parent = SupabaseClient(
+    'http://127.0.0.1:54321',
+    'test-anon-key',
+    authOptions: authOptions,
+  );
+  final kid = SupabaseClient(
+    'http://127.0.0.1:54321',
+    'test-anon-key',
+    authOptions: authOptions,
+  );
+  parent.auth.stopAutoRefresh();
+  kid.auth.stopAutoRefresh();
+  addTearDown(() {
+    parent.auth.stopAutoRefresh();
+    kid.auth.stopAutoRefresh();
+  });
+  return GoalService(RoleClients(parent: parent, kid: kid));
+}
+
+String _mediumDate(WidgetTester tester, DateTime utcDay) {
+  return MaterialLocalizations.of(tester.element(find.byType(NewGoalScreen)))
+      .formatMediumDate(DateTime(utcDay.year, utcDay.month, utcDay.day));
 }

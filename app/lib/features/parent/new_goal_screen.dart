@@ -8,6 +8,22 @@ import '../../services/edge_ai_client.dart';
 import '../../services/goal_service.dart';
 import '../../services/ledger_math.dart';
 
+/// Test stand-in for suggest-plan. Production leaves it null.
+typedef NewGoalSuggestPlan = Future<SuggestPlanResult> Function({
+  required String title,
+  double? targetAmount,
+  required DateTime targetDate,
+  required int kidAge,
+  required String goalMode,
+});
+
+/// Calendar day as UTC midnight, matching `DateTime.tryParse('yyyy-MM-dd')`.
+DateTime _utcCalendarDay(DateTime day) =>
+    DateTime.utc(day.year, day.month, day.day);
+
+DateTime _defaultTargetDate() =>
+    _utcCalendarDay(DateTime.now().add(const Duration(days: 98)));
+
 /// Parent types a goal (amount optional), gets a combined estimate + chore
 /// plan for the primary kid, can override the dollars, then Accept locks.
 class NewGoalScreen extends StatefulWidget {
@@ -15,10 +31,14 @@ class NewGoalScreen extends StatefulWidget {
     super.key,
     required this.goalService,
     this.primaryKidAge = kPrimaryKidAge,
+    @visibleForTesting this.suggestPlan,
   });
 
   final GoalService goalService;
   final int primaryKidAge;
+
+  /// When set, Suggest calls this instead of the goal service.
+  final NewGoalSuggestPlan? suggestPlan;
 
   @override
   State<NewGoalScreen> createState() => _NewGoalScreenState();
@@ -27,8 +47,7 @@ class NewGoalScreen extends StatefulWidget {
 class _NewGoalScreenState extends State<NewGoalScreen> {
   final _title = TextEditingController();
   final _amount = TextEditingController();
-  final _date = TextEditingController(
-      text: DateTime.now().add(const Duration(days: 98)).toIso8601String().substring(0, 10));
+  DateTime _targetDate = _defaultTargetDate();
   String _mode = 'family_trip';
   bool _allowMakeup = false;
 
@@ -42,7 +61,6 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
   void dispose() {
     _title.dispose();
     _amount.dispose();
-    _date.dispose();
     super.dispose();
   }
 
@@ -55,15 +73,23 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
       final title = _title.text.isEmpty ? 'Disneyland' : _title.text;
       final typed = double.tryParse(_amount.text);
       final amount = (typed != null && typed > 0) ? typed : null;
-      final date = DateTime.tryParse(_date.text) ??
-          DateTime.now().add(const Duration(days: 98));
-      final result = await widget.goalService.suggestPlan(
-        title: title,
-        targetAmount: amount,
-        targetDate: date,
-        kidAge: _kidAge,
-        goalMode: _mode,
-      );
+      final date = _targetDate;
+      final injected = widget.suggestPlan;
+      final result = injected == null
+          ? await widget.goalService.suggestPlan(
+              title: title,
+              targetAmount: amount,
+              targetDate: date,
+              kidAge: _kidAge,
+              goalMode: _mode,
+            )
+          : await injected(
+              title: title,
+              targetAmount: amount,
+              targetDate: date,
+              kidAge: _kidAge,
+              goalMode: _mode,
+            );
       setState(() {
         _result = result;
         if (_amount.text.trim().isEmpty) {
@@ -98,7 +124,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
         title: _title.text.isEmpty ? 'Disneyland' : _title.text,
         cost: locked,
         goalMode: _mode,
-        targetDate: DateTime.tryParse(_date.text),
+        targetDate: _targetDate,
         allowMakeup: _allowMakeup,
       );
       await widget.goalService.acceptPlan(
@@ -107,8 +133,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
         source: result.source,
       );
       if (!const bool.fromEnvironment('DEMO_WALK')) {
-        final date = DateTime.tryParse(_date.text);
-        final weeks = date == null ? result.weeks : weeksUntil(date);
+        final weeks = weeksUntil(_targetDate);
         await widget.goalService.lockGoalMoney(
           goalId: goalId,
           payload: lockPayload(
@@ -123,6 +148,60 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
     } catch (e) {
       setState(() => _error = '$e');
     }
+  }
+
+  String _shownDate(BuildContext context) {
+    return MaterialLocalizations.of(context).formatMediumDate(
+      DateTime(_targetDate.year, _targetDate.month, _targetDate.day),
+    );
+  }
+
+  Future<void> _pickTargetDate() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final firstDate = today.add(const Duration(days: 1));
+    final lastDate = DateTime(today.year + 5, today.month, today.day);
+    var initial =
+        DateTime(_targetDate.year, _targetDate.month, _targetDate.day);
+    if (initial.isBefore(firstDate)) initial = firstDate;
+    if (initial.isAfter(lastDate)) initial = lastDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: 'Target date',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _targetDate = DateTime.utc(picked.year, picked.month, picked.day);
+    });
+  }
+
+  Widget _targetDateField(BuildContext context) {
+    final shown = _shownDate(context);
+    return Semantics(
+      key: const Key('target-date-field'),
+      button: true,
+      container: true,
+      label: 'Target date',
+      value: shown,
+      child: ExcludeSemantics(
+        child: InkWell(
+          onTap: _pickTargetDate,
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'Target date',
+              prefixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+            ),
+            child: Text(
+              shown,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -169,14 +248,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _date,
-                decoration: const InputDecoration(
-                    labelText: 'Target date',
-                    prefixIcon: Icon(Icons.calendar_today_outlined, size: 18)),
-              ),
-            ),
+            Expanded(child: _targetDateField(context)),
           ]),
           const SizedBox(height: 4),
           Text(

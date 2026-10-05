@@ -31,9 +31,16 @@ String rejectNudge({required String choreTitle, String? parentNote}) {
 }
 
 class ChoreService {
-  ChoreService(this._clients);
+  ChoreService(
+    this._clients, {
+    this.pendingForParentOverride,
+  });
 
   final RoleClients _clients;
+
+  /// Widget tests pass this so the parent inbox does not query Supabase.
+  /// Production leaves it null. Items must be pending-approval records.
+  final Future<List<Object>> Function()? pendingForParentOverride;
 
   SupabaseClient get _parent => _clients.forRole(Role.parent);
   SupabaseClient get _kid => _clients.forRole(Role.kid);
