@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:do_my_chore/core/family_context.dart';
+import 'package:do_my_chore/features/kid/mark_done_screen.dart';
 import 'package:do_my_chore/services/edge_ai_client.dart';
 import 'package:do_my_chore/services/goal_service.dart';
 
@@ -56,6 +57,8 @@ void main() {
       }
     ],
     'deal_search': 'tavily',
+    'model': 'nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B',
+    'plan_provider': 'nebius',
   };
 
   test('parses combined estimate + chores + deals', () {
@@ -75,22 +78,45 @@ void main() {
     expect(result.deals.single.price, 899);
     expect(result.dealSearch, 'tavily');
     expect(result.weeks, 14);
+    expect(result.model, 'nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B');
+    expect(result.planProvider, 'nebius');
   });
 
-  test('DEMO_WALK skip ignores a live payload and stays local', () {
-    final result = resolveSuggestPlan(
-      demoWalk: true,
+  test('live payload is used; null or unparseable payload stays local', () {
+    final live = resolveSuggestPlan(
       edgePayload: combined,
       title: 'Miami Christmas',
       weeks: 12,
       kidAge: kPrimaryKidAge,
       goalMode: 'family_trip',
     );
-    expect(result.source, 'deterministic');
-    expect(result.estimate.provider, 'deterministic');
-    expect(result.estimate.likely, 1200);
-    expect(result.deals, isEmpty);
-    expect(result.dealSearch, 'skipped');
+    expect(live.source, 'llm');
+    expect(live.estimate.provider, 'nebius');
+    expect(live.model, 'nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B');
+    expect(live.deals, isNotEmpty);
+
+    final missing = resolveSuggestPlan(
+      edgePayload: null,
+      title: 'Miami Christmas',
+      weeks: 12,
+      kidAge: kPrimaryKidAge,
+      goalMode: 'family_trip',
+    );
+    expect(missing.source, 'deterministic');
+    expect(missing.estimate.provider, 'deterministic');
+    expect(missing.estimate.likely, 1200);
+    expect(missing.model, isNull);
+    expect(missing.deals, isEmpty);
+
+    final bad = resolveSuggestPlan(
+      edgePayload: {'oops': true},
+      title: 'Miami Christmas',
+      weeks: 12,
+      kidAge: kPrimaryKidAge,
+      goalMode: 'family_trip',
+    );
+    expect(bad.source, 'deterministic');
+    expect(bad.estimate.likely, 1200);
   });
 
   test('missing amount local path uses the goal_mode prior', () {
@@ -128,5 +154,36 @@ void main() {
 
   test('primary kid age is the demo family default', () {
     expect(kPrimaryKidAge, 8);
+  });
+
+  test('PhotoAssistResult.fromJson reads provider and model', () {
+    final live = PhotoAssistResult.fromJson({
+      'suggest': 'approve',
+      'reason': 'The dishes look washed.',
+      'provider': 'nebius',
+      'model': 'nvidia/Nemotron-3-Nano-Omni',
+    });
+    expect(live.suggest, 'approve');
+    expect(live.provider, 'nebius');
+    expect(live.model, 'nvidia/Nemotron-3-Nano-Omni');
+    expect(live.shownReason, 'The dishes look washed. (nvidia/Nemotron-3-Nano-Omni)');
+
+    final abstain = PhotoAssistResult.fromJson({
+      'suggest': 'abstain',
+      'reason': 'Photo check is not configured.',
+      'provider': null,
+      'model': null,
+    });
+    expect(abstain.provider, isNull);
+    expect(abstain.model, isNull);
+    expect(abstain.shownReason, 'Photo check is not configured.');
+  });
+
+  test('DEMO_WALK photo asset matches the chore title', () {
+    expect(demoWalkPhotoAsset('Wash the dishes'), 'assets/photos/dishes.jpg');
+    expect(demoWalkPhotoAsset('Fold the laundry'), 'assets/photos/laundry.jpg');
+    expect(demoWalkPhotoAsset('Tidy your room'), 'assets/photos/bed.jpg');
+    expect(demoWalkPhotoAsset('Make your bed'), 'assets/photos/bed.jpg');
+    expect(demoWalkPhotoAsset('Homework'), 'assets/photos/dishes.jpg');
   });
 }

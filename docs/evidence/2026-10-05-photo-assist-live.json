@@ -1,0 +1,42 @@
+{
+  "suggest": "abstain",
+  "reason": "Photo check failed. Your call, parent.",
+  "provider": null,
+  "model": null,
+  "llm_error": {
+    "provider": "nebius",
+    "model": "nvidia/nemotron-3-nano-omni",
+    "base_host": "api.tokenfactory.nebius.com",
+    "status": 404,
+    "message": "{\"detail\":\"The model `nvidia/nemotron-3-nano-omni` does not exist.\"}",
+    "available_models": [
+      "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+      "nvidia/Nemotron-3_5-Lightning",
+      "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "nvidia/nemotron-3-super-120b-a12b",
+      "moonshotai/Kimi-K3",
+      "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "google/gemma-3-27b-it",
+      "Qwen/Qwen3-Embedding-8B",
+      "openai/gpt-oss-120b",
+      "Qwen/Qwen3-30B-A3B-Instruct-2507",
+      "NousResearch/Hermes-4-405B",
+      "zai-org/GLM-5.1",
+      "openbmb/MiniCPM-V-4_5",
+      "Qwen/Qwen3.8-27B",
+      "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "MiniMaxAI/MiniMax-M3",
+      "moonshotai/Kimi-K2.7-Code",
+      "moonshotai/Kimi-K2.6",
+      "Qwen/Qwen3.5-397B-A17B",
+      "deepseek-ai/DeepSeek-V4-Pro",
+      "zai-org/GLM-5.2",
+      "zai-org/GLM-5.3-Flash",
+      "deepseek-ai/DeepSeek-V4.1-Flash",
+      "zai-org/GLM-5.3",
+      "deepseek-ai/DeepSeek-V4-Pro-0813"
+    ]
+  },
+  "http_status": 200,
+  "captured_at": "2026-10-05T06:41:44Z"
+}

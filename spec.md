@@ -85,7 +85,7 @@ Input `{ title, targetAmount, targetDate, goalMode }` -> `{ estimate: {low, like
 ## Configuration
 
 - App: `--dart-define=SUPABASE_URL=... SUPABASE_ANON_KEY=...` (and optional `DEMO_WALK=true` for the simulator walkthrough camera stub)
-- Functions secrets (all optional): `NEBIUS_API_KEY`, `OPENAI_API_KEY`, `TAVILY_API_KEY`, plus optional `NEBIUS_TEXT_MODEL` / `NEBIUS_VISION_MODEL` overrides. Absence degrades to fallbacks, never crashes. See [`docs/nebius-token-factory.md`](docs/nebius-token-factory.md).
+- Functions secrets (all optional): `NEBIUS_API_KEY`, `OPENAI_API_KEY`, `TAVILY_API_KEY`, plus optional `NEBIUS_BASE_URL` / `NEBIUS_VISION_BASE_URL` / `NEBIUS_TEXT_MODEL` / `NEBIUS_VISION_MODEL` overrides. Vision calls use `NEBIUS_VISION_BASE_URL` when set, else `NEBIUS_BASE_URL`. Absence degrades to fallbacks, never crashes. See [`docs/nebius-token-factory.md`](docs/nebius-token-factory.md).
 - Local dev: Supabase CLI via Docker (`supabase start`); iOS simulator reaches `127.0.0.1`.
 
 ## Testing

@@ -10,10 +10,10 @@ import 'package:do_my_chore/services/goal_service.dart';
 /// UI contract: parent types free-text goal only (amount blank) → Suggest
 /// shows estimate bands + weekly save + chore plan.
 ///
-/// Green under plain `flutter test` (CI): without DEMO_WALK the client first
-/// tries the suggest-plan function, which times out in the test binding after
-/// 8s of virtual time and falls back to the local deterministic result - so
-/// the pump budget below must exceed that timeout.
+/// Green under plain `flutter test` (CI): the client tries the suggest-plan
+/// function first (DEMO_WALK no longer skips that call). The invoke times out
+/// in the test binding after 8s of virtual time and falls back to the local
+/// deterministic result, so the pump budget below must exceed that timeout.
 void main() {
   test('localGoalFirstSuggest with null amount yields family_trip prior', () {
     final r = localGoalFirstSuggest(
@@ -67,8 +67,8 @@ void main() {
     expect(tester.widget<TextField>(fields.at(1)).controller?.text ?? '', isEmpty);
 
     await tester.tap(find.text('Suggest plan'));
-    // Without DEMO_WALK the function invoke times out at 8s virtual time
-    // before the local fallback renders; 200 x 50ms covers it with margin.
+    // The function invoke times out at 8s virtual time before the local
+    // fallback renders; 200 x 50ms covers it with margin.
     for (var i = 0; i < 200; i++) {
       await tester.pump(const Duration(milliseconds: 50));
       if (find.text('SAVE ESTIMATE').evaluate().isNotEmpty ||

@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { resolveEstimate } from "./goal_estimate.ts";
+import { parseJsonObject } from "./llm.ts";
 import {
   buildSafeDealQuery,
   isSafeChoreTitle,
@@ -72,6 +73,27 @@ Deno.test("wrapUserGoalPayload delimits GOAL_TEXT and only allowed fields", () =
   assert(!wrapped.toLowerCase().includes("arjun"));
   assert(!wrapped.toLowerCase().includes("ledger"));
   assert(!wrapped.includes("@"));
+
+  const estimate = wrapUserGoalPayload({
+    goalText: "Lego castle set",
+    kidAge: 9,
+    weeks: 14,
+    goal_mode: "kid_item",
+  }, { task: "estimate" });
+  assert(estimate.includes('{"low": number, "likely": number, "high": number, "rationale": string}'));
+  assert(estimate.includes("Example:"));
+  assert(estimate.includes("GOAL_TEXT"));
+
+  const plan = wrapUserGoalPayload({
+    goalText: "Lego castle set",
+    kidAge: 9,
+    weeks: 14,
+    goal_mode: "kid_item",
+  }, { task: "plan", costUsd: 80 });
+  assert(plan.includes("weekly_parent_save"));
+  assert(plan.includes("make-your-bed"));
+  assert(plan.includes("Example:"));
+  assert(!plan.includes("@"));
 });
 
 Deno.test("system guardrails treat the goal as data and stay conservative", () => {
@@ -102,6 +124,55 @@ Deno.test("validatePlanOutput rejects a plan with an unsafe chore title", () => 
       { library_chore_id: "wash-the-dishes", title: "https://evil.example", cadence: "daily", weight_pct: 30, requires_photo: true },
       { library_chore_id: "fold-the-laundry", title: "Fold the laundry", cadence: "weekly", weight_pct: 20, requires_photo: true },
       { library_chore_id: "plan-the-week-together", title: "Plan the week together", cadence: "once", weight_pct: 10, requires_photo: false },
+    ],
+  };
+  assertEquals(validatePlanOutput(raw, FALLBACK_PLAN), null);
+});
+
+const NEMOTRON_PLAN = `<think>
+Drafting chores. Ignore { "chores": [] }.
+</think>
+\`\`\`json
+{
+  "weekly_parent_save": "12.5",
+  "notes": "ignore me",
+  "chores": [
+    {"library_chore_id": "Make-Your-Bed", "title": "Make Your Bed", "cadence": "Daily", "weight_pct": "40", "requires_photo": "true", "is_makeup": false},
+    {"library_chore_id": "wash-the-dishes", "title": "Wash the dishes", "cadence": "daily", "weight_pct": "30", "requires_photo": true, "is_makeup": false},
+    {"library_chore_id": "not-a-real-chore", "title": "Mow the lawn", "cadence": "weekly", "weight_pct": "50", "requires_photo": false, "is_makeup": false},
+    {"library_chore_id": "fold-the-laundry", "title": "Fold the laundry", "cadence": "weekly", "weight_pct": "20", "requires_photo": true, "is_makeup": false},
+    {"title": "Plan the park itinerary", "cadence": "once", "weight_pct": "10", "requires_photo": false, "is_makeup": false}
+  ],
+  "why": "Parent funding covers the Lego set by the deadline. The kid earns it by keeping these library habits going. A steady streak lands on the goal."
+}
+\`\`\``;
+
+Deno.test("realistic Nemotron plan with a think block and fenced JSON stays catalog-only", () => {
+  const plan = validatePlanOutput(parseJsonObject(NEMOTRON_PLAN), FALLBACK_PLAN);
+  if (!plan) throw new Error("expected a plan");
+  assertEquals(plan.weekly_parent_save, 12.5);
+  assertEquals(plan.chores.map((c) => c.library_chore_id), [
+    "make-your-bed",
+    "wash-the-dishes",
+    "fold-the-laundry",
+    "plan-the-park-itinerary",
+  ]);
+  assertEquals(plan.chores[0].title, "Make your bed");
+  assertEquals(plan.chores[0].requires_photo, true);
+  assertEquals(plan.chores[0].cadence, "daily");
+  assertEquals(plan.chores.some((c) => c.title === "Mow the lawn"), false);
+  assert(plan.why.startsWith("Parent funding"));
+});
+
+Deno.test("validatePlanOutput still rejects when fewer than 4 chores are in the catalog", () => {
+  const raw = {
+    weekly_parent_save: 10,
+    why: "Not enough real chores.",
+    chores: [
+      { library_chore_id: "make-your-bed", title: "Make your bed", cadence: "daily", weight_pct: 40, requires_photo: true },
+      { library_chore_id: "wash-the-dishes", title: "Wash the dishes", cadence: "daily", weight_pct: 30, requires_photo: true },
+      { library_chore_id: "fold-the-laundry", title: "Fold the laundry", cadence: "weekly", weight_pct: 40, requires_photo: true },
+      { library_chore_id: "nope", title: "Mow the lawn", cadence: "weekly", weight_pct: 40, requires_photo: false },
     ],
   };
   assertEquals(validatePlanOutput(raw, FALLBACK_PLAN), null);

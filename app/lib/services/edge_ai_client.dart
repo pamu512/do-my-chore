@@ -12,13 +12,35 @@ import 'goal_service.dart';
 class PhotoAssistResult {
   final String suggest; // approve | reject | abstain
   final String reason;
+  final String? provider; // nebius | openai | null when abstaining
+  final String? model;
 
-  const PhotoAssistResult({required this.suggest, required this.reason});
+  const PhotoAssistResult({
+    required this.suggest,
+    required this.reason,
+    this.provider,
+    this.model,
+  });
+
+  /// Model reason, with the model id when the function returned one.
+  String get shownReason {
+    final id = model?.trim();
+    if (id == null || id.isEmpty) return reason;
+    return '$reason ($id)';
+  }
 
   static PhotoAssistResult fromJson(Map<String, dynamic> j) => PhotoAssistResult(
         suggest: (j['suggest'] as String?) ?? 'abstain',
         reason: (j['reason'] as String?) ?? 'Photo check is not configured.',
+        provider: _jsonString(j['provider']),
+        model: _jsonString(j['model']),
       );
+}
+
+String? _jsonString(Object? v) {
+  if (v is! String) return null;
+  final t = v.trim();
+  return t.isEmpty ? null : t;
 }
 
 /// Invokes `photo-assist`. On any failure, abstains — parent stays final.
@@ -101,6 +123,8 @@ class SuggestPlanResult {
   final List<GoalDeal> deals;
   final String dealSearch;
   final int weeks;
+  final String? model;
+  final String? planProvider;
 
   const SuggestPlanResult({
     required this.plan,
@@ -109,10 +133,12 @@ class SuggestPlanResult {
     this.deals = const [],
     this.dealSearch = 'skipped',
     this.weeks = 12,
+    this.model,
+    this.planProvider,
   });
 }
 
-/// Local-only goal-first result (zero-key / DEMO_WALK / catch).
+/// Local-only goal-first result (zero-key / catch).
 SuggestPlanResult localGoalFirstSuggest({
   required String title,
   double? targetAmount,
@@ -185,15 +211,16 @@ SuggestPlanResult parseSuggestPlanPayload(
       deals: deals,
       dealSearch: (raw['deal_search'] as String?) ?? 'skipped',
       weeks: weeks,
+      model: _jsonString(raw['model']),
+      planProvider: _jsonString(raw['plan_provider']),
     );
   } catch (_) {
     return local;
   }
 }
 
-/// DEMO_WALK and missing payloads stay local. Used by tests and the client.
+/// Missing or unparseable payloads stay local. Used by tests and the client.
 SuggestPlanResult resolveSuggestPlan({
-  required bool demoWalk,
   Map<String, dynamic>? edgePayload,
   required String title,
   double? targetAmount,
@@ -201,15 +228,6 @@ SuggestPlanResult resolveSuggestPlan({
   required int kidAge,
   String goalMode = 'kid_item',
 }) {
-  if (demoWalk) {
-    return localGoalFirstSuggest(
-      title: title,
-      targetAmount: targetAmount,
-      weeks: weeks,
-      kidAge: kidAge,
-      goalMode: goalMode,
-    );
-  }
   if (edgePayload != null) {
     return parseSuggestPlanPayload(
       edgePayload,
@@ -247,8 +265,6 @@ extension GoalServiceAi on GoalService {
           kidAge: kidAge,
           goalMode: goalMode,
         );
-    // Basics video / walkthrough: never block on a network plan.
-    if (const bool.fromEnvironment('DEMO_WALK')) return local();
     try {
       final res = await parentClient.functions.invoke(
         'suggest-plan',

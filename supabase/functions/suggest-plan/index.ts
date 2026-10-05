@@ -15,6 +15,7 @@ import { CORS } from "../_shared/cors.ts";
 import { searchDeals } from "../_shared/deals.ts";
 import {
   allowedPromptFields,
+  finishLlmEstimate,
   goalFirstResponse,
   inferSlots,
   readGoalText,
@@ -22,8 +23,17 @@ import {
   resolveEstimate,
   resolveWeeks,
   type ChoreSpec,
+  type Estimate,
 } from "../_shared/goal_estimate.ts";
-import { chatCompletions, parseJsonObject } from "../_shared/llm.ts";
+import {
+  chatCompletions,
+  chatOk,
+  llmErrorForFallback,
+  llmErrorForRejectedOutput,
+  parseJsonObject,
+  preferLlmError,
+  type PublicLlmError,
+} from "../_shared/llm.ts";
 import {
   buildSafeDealQuery,
   sanitizeGoalText,
@@ -79,7 +89,12 @@ export function buildDeterministicPlan(
 async function buildLlmPlan(
   fields: ReturnType<typeof allowedPromptFields>,
   targetAmount: number,
-): Promise<Plan> {
+): Promise<{
+  plan: Plan;
+  model: string | null;
+  provider: "nebius" | "openai" | null;
+  llmError: PublicLlmError | null;
+}> {
   const fallback = buildDeterministicPlan(fields.goalText, targetAmount, fields.weeks, fields.kidAge);
   const result = await chatCompletions({
     json: true,
@@ -93,8 +108,26 @@ async function buildLlmPlan(
       },
     ],
   });
-  if (!result) return fallback;
-  return validatePlanOutput(parseJsonObject(result.text), fallback) ?? fallback;
+  if (!chatOk(result)) {
+    return { plan: fallback, model: null, provider: null, llmError: llmErrorForFallback(result) };
+  }
+  const parsed = parseJsonObject(result.text);
+  const plan = validatePlanOutput(parsed, fallback);
+  if (!plan) {
+    return {
+      plan: fallback,
+      model: null,
+      provider: null,
+      llmError: llmErrorForRejectedOutput({
+        provider: result.provider,
+        model: result.model,
+        baseHost: result.baseHost,
+        text: result.text,
+        reason: parsed ? "invalid_plan" : "unparseable_output",
+      }),
+    };
+  }
+  return { plan, model: result.model, provider: result.provider, llmError: null };
 }
 
 async function buildLlmEstimate(input: {
@@ -103,7 +136,7 @@ async function buildLlmEstimate(input: {
   weeks: number;
   goalMode: string;
   kidAge: number;
-}) {
+}): Promise<{ estimate: Estimate; model: string | null; llmError: PublicLlmError | null }> {
   const fields = allowedPromptFields({
     goalText: input.title,
     kidAge: input.kidAge,
@@ -125,13 +158,27 @@ async function buildLlmEstimate(input: {
       },
     ],
   });
-  return resolveEstimate({
+  if (!chatOk(result)) {
+    return {
+      estimate: resolveEstimate({
+        title: input.title,
+        enteredCost: input.enteredCost,
+        weeks: input.weeks,
+        goalMode: input.goalMode,
+      }),
+      model: null,
+      llmError: llmErrorForFallback(result),
+    };
+  }
+  return finishLlmEstimate({
     title: input.title,
     enteredCost: input.enteredCost,
     weeks: input.weeks,
     goalMode: input.goalMode,
-    llmText: result?.text,
-    llmProvider: result?.provider,
+    llmText: result.text,
+    llmProvider: result.provider,
+    llmModel: result.model,
+    baseHost: result.baseHost,
   });
 }
 
@@ -146,13 +193,17 @@ Deno.serve(async (req) => {
     const kidAge = Number(body.kidAge) > 0 ? Number(body.kidAge) : 9; // matches app kPrimaryKidAge
     const slots = inferSlots(title, body.goalMode);
     const skipLlm = skipLlmForGoal(title);
-    const estimate = skipLlm
-      ? resolveEstimate({
-        title,
-        enteredCost,
-        weeks,
-        goalMode: slots.goal_mode,
-      })
+    const estimated = skipLlm
+      ? {
+        estimate: resolveEstimate({
+          title,
+          enteredCost,
+          weeks,
+          goalMode: slots.goal_mode,
+        }),
+        model: null,
+        llmError: null,
+      }
       : await buildLlmEstimate({
         title,
         enteredCost,
@@ -160,31 +211,40 @@ Deno.serve(async (req) => {
         goalMode: slots.goal_mode,
         kidAge,
       });
-    const planAmount = enteredCost ?? estimate.likely;
+    const planAmount = enteredCost ?? estimated.estimate.likely;
     const fields = allowedPromptFields({
       goalText: title,
       kidAge,
       weeks,
       goalMode: slots.goal_mode,
     });
-    const plan = skipLlm
-      ? buildDeterministicPlan(title, planAmount, weeks, kidAge)
+    const planned = skipLlm
+      ? {
+        plan: buildDeterministicPlan(title, planAmount, weeks, kidAge),
+        model: null,
+        provider: null,
+        llmError: null,
+      }
       : await buildLlmPlan(fields, planAmount);
     const searched = await searchDeals(
-      buildSafeDealQuery(slots, slots.goal_mode, estimate.likely),
-      estimate.likely,
+      buildSafeDealQuery(slots, slots.goal_mode, estimated.estimate.likely),
+      estimated.estimate.likely,
     );
+    const llmError = preferLlmError(estimated.llmError, planned.llmError);
+    const payload = goalFirstResponse({
+      estimate: estimated.estimate,
+      weeklyParentSave: planned.plan.weekly_parent_save,
+      chores: planned.plan.chores,
+      why: planned.plan.why,
+      weeks,
+      slots,
+      deals: searched.deals,
+      dealSearch: searched.dealSearch,
+      model: estimated.model ?? planned.model,
+      planProvider: planned.provider,
+    });
     return Response.json(
-      goalFirstResponse({
-        estimate,
-        weeklyParentSave: plan.weekly_parent_save,
-        chores: plan.chores,
-        why: plan.why,
-        weeks,
-        slots,
-        deals: searched.deals,
-        dealSearch: searched.dealSearch,
-      }),
+      llmError ? { ...payload, llm_error: llmError } : payload,
       { headers: { ...CORS, "Content-Type": "application/json" } },
     );
   } catch (e) {

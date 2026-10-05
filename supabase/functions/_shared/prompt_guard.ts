@@ -4,8 +4,15 @@
 // TODO: require a valid parent JWT on suggest-plan / goal-cost-orchestrate / photo-assist
 // TODO: per-family rate limit on LLM + Tavily invokes (edge / gateway)
 
-import { resolveLibraryChore } from "./goal_estimate.ts";
-import type { AllowedPromptFields, ChoreSpec, GoalSlots } from "./goal_estimate.ts";
+import {
+  buildEstimatePrompt,
+  buildPlanPrompt,
+  readModelNumber,
+  resolveLibraryChore,
+  type AllowedPromptFields,
+  type ChoreSpec,
+  type GoalSlots,
+} from "./goal_estimate.ts";
 
 export const MAX_GOAL_CHARS = 500;
 export const MAX_CHORE_TITLE_CHARS = 80;
@@ -88,7 +95,19 @@ export function wrapUserGoalPayload(
   if (extra?.parentPriorUsd != null && extra.parentPriorUsd > 0) {
     lines.push(`parentPriorUsd: ${extra.parentPriorUsd}`);
   }
+  if (extra?.task === "plan") {
+    const cost = extra.costUsd != null && extra.costUsd > 0 ? extra.costUsd : 0;
+    lines.push("", buildPlanPrompt(fields, cost));
+  } else if (extra?.task === "estimate") {
+    lines.push("", buildEstimatePrompt(fields, extra.parentPriorUsd));
+  }
   return lines.join("\n");
+}
+
+function asBool(v: unknown): boolean {
+  if (v === true || v === 1) return true;
+  if (typeof v === "string") return /^(true|yes|1)$/i.test(v.trim());
+  return false;
 }
 
 export function isSafeChoreTitle(title: string): boolean {
@@ -108,41 +127,41 @@ export function validatePlanOutput(
 ): PlanOutput | null {
   if (!raw) return null;
   const chores = raw.chores;
-  if (!Array.isArray(chores) || chores.length < 4 || chores.length > 8) return null;
+  if (!Array.isArray(chores) || chores.length < 4) return null;
   const why = String(raw.why ?? "").trim();
   if (!why) return null;
-  const mapped = chores.slice(0, 8).map((c) => {
+  const kept: ChoreSpec[] = [];
+  // Scan a few extra rows so one invented chore does not sink a catalog plan.
+  for (const c of chores.slice(0, 12)) {
     const row = (c ?? {}) as Record<string, unknown>;
-    return resolveLibraryChore({
+    const given = String(row.title ?? "").trim();
+    const cadenceRaw = String(row.cadence ?? "").trim().toLowerCase();
+    const cadence = cadenceRaw === "daily" || cadenceRaw === "weekly" || cadenceRaw === "once"
+      ? cadenceRaw
+      : undefined;
+    const mapped = resolveLibraryChore({
       library_chore_id: row.library_chore_id == null
         ? undefined
         : String(row.library_chore_id),
-      title: String(row.title ?? "").trim(),
-      cadence: (row.cadence === "daily" || row.cadence === "weekly" || row.cadence === "once")
-        ? row.cadence
-        : undefined,
-      weight_pct: Number(row.weight_pct) || 0,
-      requires_photo: row.requires_photo === true,
+      title: given,
+      cadence,
+      weight_pct: readModelNumber(row.weight_pct) || 0,
+      requires_photo: asBool(row.requires_photo),
       is_makeup: false,
     });
-  });
-  if (mapped.some((c) => c == null)) return null;
-  const choresOut = mapped as ChoreSpec[];
-  // The library row supplies the canonical title, but a payload title that
-  // is present, safe-shaped, and DIFFERENT from the library title means the
-  // model tried to smuggle text under a valid id - reject the whole plan.
-  if (
-    choresOut.some((c, i) => {
-      const given = String((chores[i] as Record<string, unknown>)?.title ?? "").trim();
-      return given !== c.title && !isSafeChoreTitle(given);
-    })
-  ) return null;
-  if (choresOut.some((c) => !isSafeChoreTitle(c.title))) return null;
-  const weightSum = choresOut.reduce((s, c) => s + c.weight_pct, 0);
+    if (!mapped) continue;
+    // Catalog id plus an unsafe different title rejects the whole plan.
+    if (given && given !== mapped.title && !isSafeChoreTitle(given)) return null;
+    if (!isSafeChoreTitle(mapped.title)) return null;
+    kept.push(mapped);
+  }
+  if (kept.length < 4 || kept.length > 8) return null;
+  const weightSum = kept.reduce((s, c) => s + c.weight_pct, 0);
   if (weightSum + 1e-9 < 100) return null;
+  const weekly = readModelNumber(raw.weekly_parent_save);
   return {
-    weekly_parent_save: Number(raw.weekly_parent_save) || fallback.weekly_parent_save,
-    chores: choresOut,
+    weekly_parent_save: weekly > 0 ? weekly : fallback.weekly_parent_save,
+    chores: kept,
     why,
   };
 }

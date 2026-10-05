@@ -1,7 +1,7 @@
-// Photo Assist edge function — suggests approve/reject for visually
-// verifiable chores only. Without an LLM key it abstains with a clear
-// reason. The parent is always final: this is a suggestion on the approval
-// card, never an action.
+// Photo Assist edge function. Suggests approve/reject for visually
+// verifiable chores only. No key: abstain, "not configured". A failed
+// vision call: abstain, "check failed", plus llm_error. The parent is
+// always final: this is a suggestion on the approval card, never an action.
 //
 // Provider order (Basics must run with zero keys):
 //   1. NEBIUS_API_KEY → Token Factory vision model (see _shared/llm.ts)
@@ -10,16 +10,22 @@
 
 import "https://deno.land/std@0.224.0/http/server.ts";
 import { CORS } from "../_shared/cors.ts";
-import { chatCompletions, parseJsonObject } from "../_shared/llm.ts";
+import {
+  chatCompletions,
+  chatOk,
+  llmErrorForFallback,
+  parseJsonObject,
+  photoAssistPayload,
+  type PhotoAssistPayload,
+  type PublicLlmError,
+} from "../_shared/llm.ts";
 import { photoAssistSystemMessage } from "../_shared/prompt_guard.ts";
 
-interface AssistResult {
-  suggest: "approve" | "reject" | "abstain";
-  reason: string;
-}
+const NOT_CONFIGURED = "Photo check is not configured. Your call, parent.";
+const CHECK_FAILED = "Photo check failed. Your call, parent.";
 
-function abstain(reason: string): AssistResult {
-  return { suggest: "abstain", reason };
+function abstain(reason: string): PhotoAssistPayload {
+  return photoAssistPayload({ suggest: "abstain", reason });
 }
 
 function isVisuallyVerifiable(choreTitle: string): boolean {
@@ -30,7 +36,10 @@ function isVisuallyVerifiable(choreTitle: string): boolean {
   return visualCues.some((w) => t.includes(w));
 }
 
-async function assistWithVision(choreTitle: string, imageBase64: string): Promise<AssistResult | null> {
+async function assistWithVision(
+  choreTitle: string,
+  imageBase64: string,
+): Promise<{ payload: PhotoAssistPayload; llmError: PublicLlmError | null }> {
   const result = await chatCompletions({
     json: true,
     temperature: 0.2,
@@ -52,11 +61,37 @@ async function assistWithVision(choreTitle: string, imageBase64: string): Promis
       },
     ],
   });
-  if (!result) return null;
+  if (!chatOk(result)) {
+    return {
+      payload: abstain(result == null ? NOT_CONFIGURED : CHECK_FAILED),
+      llmError: llmErrorForFallback(result),
+    };
+  }
   const parsed = parseJsonObject(result.text);
-  const suggest = parsed?.suggest;
-  if (suggest !== "approve" && suggest !== "reject") return null;
-  return { suggest, reason: String(parsed?.reason ?? "Have a look and decide.") };
+  const suggest = parsed?.suggest === "approve" || parsed?.suggest === "reject"
+    ? parsed.suggest
+    : null;
+  if (!suggest) {
+    return {
+      payload: abstain(CHECK_FAILED),
+      llmError: {
+        provider: result.provider,
+        model: result.model,
+        base_host: result.baseHost,
+        status: null,
+        message: "Photo check response was not usable.",
+      },
+    };
+  }
+  return {
+    payload: photoAssistPayload({
+      suggest,
+      reason: String(parsed?.reason ?? "Have a look and decide."),
+      provider: result.provider,
+      model: result.model,
+    }),
+    llmError: null,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -77,7 +112,7 @@ Deno.serve(async (req) => {
     }
     const assisted = await assistWithVision(String(choreTitle), String(image));
     return Response.json(
-      assisted ?? abstain("Photo check is not configured — your call, parent."),
+      assisted.llmError ? { ...assisted.payload, llm_error: assisted.llmError } : assisted.payload,
       { headers: { ...CORS, "Content-Type": "application/json" } },
     );
   } catch (e) {

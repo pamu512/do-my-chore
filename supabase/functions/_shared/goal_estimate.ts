@@ -2,7 +2,11 @@
 // Zero keys and bad model JSON always fall back to a static prior by
 // goal_mode (not live market prices). Parent must confirm before lock.
 
-import { parseJsonObject } from "./llm.ts";
+import {
+  llmErrorForRejectedOutput,
+  parseJsonObject,
+  type PublicLlmError,
+} from "./llm.ts";
 
 export type EstimateProvider = "nebius" | "openai" | "deterministic";
 
@@ -63,17 +67,41 @@ export function libraryForAge(age: number) {
   return CHORE_LIBRARY.filter((h) => age >= h.min_age && age <= h.max_age);
 }
 
-/** Resolve an LLM row to a library chore by id, falling back to exact title. */
+function foldCatalogKey(v: string | undefined): string {
+  return (v ?? "").trim().toLowerCase().replace(/\s+/g, " ").replace(/[.!?]+$/g, "");
+}
+
+/** JSON numbers, numeric strings, and "$1,200" / "40%". NaN when it is not a number. */
+export function readModelNumber(v: unknown): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : NaN;
+  if (typeof v === "string") {
+    const n = Number(v.trim().replace(/[$,]/g, "").replace(/%$/, ""));
+    return Number.isFinite(n) ? n : NaN;
+  }
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/** Resolve an LLM row to a library chore by id, then title. Case and trailing punctuation fold. */
 export function resolveLibraryChore(raw: Partial<ChoreSpec>): ChoreSpec | null {
-  const byId = CHORE_LIBRARY.find((h) => h.id === raw.library_chore_id);
-  const byTitle = CHORE_LIBRARY.find((h) => h.title === raw.title);
+  const idFold = foldCatalogKey(raw.library_chore_id);
+  const titleFold = foldCatalogKey(raw.title);
+  const byId = idFold
+    ? CHORE_LIBRARY.find((h) => h.id === raw.library_chore_id || foldCatalogKey(h.id) === idFold)
+    : undefined;
+  const byTitle = titleFold
+    ? CHORE_LIBRARY.find((h) => h.title === raw.title || foldCatalogKey(h.title) === titleFold)
+    : undefined;
   const hit = byId ?? byTitle;
   if (!hit) return null;
+  const cadence = raw.cadence === "daily" || raw.cadence === "weekly" || raw.cadence === "once"
+    ? raw.cadence
+    : hit.cadence;
   return {
     library_chore_id: hit.id,
     title: hit.title,
-    cadence: (raw.cadence as ChoreSpec["cadence"]) || hit.cadence,
-    weight_pct: Number(raw.weight_pct) || 0,
+    cadence,
+    weight_pct: readModelNumber(raw.weight_pct) || 0,
     requires_photo: raw.requires_photo === true,
     is_makeup: false,
   };
@@ -174,6 +202,12 @@ export function allowedPromptFields(input: Record<string, unknown>): AllowedProm
   };
 }
 
+function estimateExample(): string {
+  return (
+    `{"low": 40, "likely": 80, "high": 150, "rationale": "A kids item in this range usually costs about this much today. The low figure is a sale price and the high figure is a nicer version. You confirm the likely number before it is locked."}`
+  );
+}
+
 export function buildEstimatePrompt(fields: AllowedPromptFields, parentPriorUsd?: number): string {
   const prior = parentPriorUsd != null && parentPriorUsd > 0
     ? `Parent prior amount: $${parentPriorUsd}. Use it as a prior, not the only possible answer.\n`
@@ -185,8 +219,22 @@ export function buildEstimatePrompt(fields: AllowedPromptFields, parentPriorUsd?
     `Kid age: ${fields.kidAge}\n` +
     `Deadline in ${fields.weeks} weeks.\n` +
     prior +
-    `Return ONLY JSON: {"low": number, "likely": number, "high": number, "rationale": string}\n` +
-    `Rules: all numbers > 0; low <= likely <= high; USD; rationale is 2-3 sentences in plain parent language (no ML jargon).`
+    `Return ONLY one JSON object. No markdown and no prose around it.\n` +
+    `Exact schema: {"low": number, "likely": number, "high": number, "rationale": string}\n` +
+    `Example: ${estimateExample()}\n` +
+    `Rules: all numbers > 0; low <= likely <= high; USD; extra keys are ignored; rationale is 2-3 sentences in plain parent language (no ML jargon).`
+  );
+}
+
+function planExample(age: number): string {
+  const pick = libraryForAge(age).slice(0, 4);
+  if (pick.length < 4) return "Copy 4 to 8 rows from the library list above.";
+  const weights = [40, 30, 20, 10];
+  const chores = pick.map((h, i) =>
+    `{"library_chore_id": ${JSON.stringify(h.id)}, "title": ${JSON.stringify(h.title)}, "cadence": ${JSON.stringify(h.cadence)}, "weight_pct": ${weights[i]}, "requires_photo": ${h.requires_photo}, "is_makeup": false}`
+  );
+  return (
+    `{"weekly_parent_save": 10, "chores": [${chores.join(", ")}], "why": "Setting aside that amount each week covers the cost by the deadline. These habits are copied from the library. A steady streak lands on the goal."}`
   );
 }
 
@@ -198,7 +246,9 @@ export function buildPlanPrompt(fields: AllowedPromptFields, targetAmount: numbe
     `You help a parent plan how a kid earns a goal through habits, while the parent funds the real cost.\n` +
     `Goal: "${fields.goalText}", cost $${targetAmount}, deadline in ${fields.weeks} weeks, kid age ${fields.kidAge}.\n` +
     `Type: ${fields.goal_mode}.\n` +
-    `Return ONLY JSON: {"weekly_parent_save": number, "chores": [{"library_chore_id": string, "title": string, "cadence": "once"|"daily"|"weekly", "weight_pct": number, "requires_photo": boolean, "is_makeup": false}], "why": string}\n` +
+    `Return ONLY one JSON object. No markdown and no prose around it.\n` +
+    `Exact schema: {"weekly_parent_save": number, "chores": [{"library_chore_id": string, "title": string, "cadence": "once"|"daily"|"weekly", "weight_pct": number, "requires_photo": boolean, "is_makeup": false}], "why": string}\n` +
+    `Example: ${planExample(fields.kidAge)}\n` +
     `Rules:\n` +
     `- Pick 4-8 chores ONLY from this library. Use the given library_chore_id exactly. Same habit always uses the same id.\n` +
     `${catalogLines}\n` +
@@ -245,14 +295,57 @@ export function deterministicEstimate(input: {
 
 function validEstimate(raw: Record<string, unknown> | null): Omit<Estimate, "provider"> | null {
   if (!raw) return null;
-  const low = Number(raw.low);
-  const likely = Number(raw.likely);
-  const high = Number(raw.high);
+  const low = readModelNumber(raw.low);
+  const likely = readModelNumber(raw.likely);
+  const high = readModelNumber(raw.high);
   const rationale = String(raw.rationale ?? "").trim();
   if (!(low > 0 && likely > 0 && high > 0)) return null;
   if (low > likely || likely > high) return null;
   if (!rationale) return null;
   return { low, likely, high, currency: "USD", rationale };
+}
+
+export function estimateRejectionReason(
+  llmText: string,
+): "unparseable_output" | "invalid_estimate" | null {
+  const parsed = parseJsonObject(llmText);
+  if (!parsed) return "unparseable_output";
+  if (!validEstimate(parsed)) return "invalid_estimate";
+  return null;
+}
+
+export function finishLlmEstimate(input: {
+  title: string;
+  enteredCost?: number;
+  weeks: number;
+  goalMode: string;
+  llmText: string;
+  llmProvider: "nebius" | "openai";
+  llmModel: string;
+  baseHost: string;
+}): { estimate: Estimate; model: string | null; llmError: PublicLlmError | null } {
+  const estimate = resolveEstimate({
+    title: input.title,
+    enteredCost: input.enteredCost,
+    weeks: input.weeks,
+    goalMode: input.goalMode,
+    llmText: input.llmText,
+    llmProvider: input.llmProvider,
+  });
+  if (estimate.provider !== "deterministic") {
+    return { estimate, model: input.llmModel, llmError: null };
+  }
+  return {
+    estimate,
+    model: null,
+    llmError: llmErrorForRejectedOutput({
+      provider: input.llmProvider,
+      model: input.llmModel,
+      baseHost: input.baseHost,
+      text: input.llmText,
+      reason: estimateRejectionReason(input.llmText) ?? "invalid_estimate",
+    }),
+  };
 }
 
 export function resolveEstimate(input: {
@@ -284,6 +377,8 @@ export function goalFirstResponse(input: {
   slots: GoalSlots;
   deals?: unknown[];
   dealSearch?: "tavily" | "skipped";
+  model?: string | null;
+  planProvider?: "nebius" | "openai" | null;
 }): {
   estimate: Estimate;
   weekly_save_suggestion: number;
@@ -294,6 +389,8 @@ export function goalFirstResponse(input: {
   why: string;
   deals: unknown[];
   deal_search: "tavily" | "skipped";
+  model: string | null;
+  plan_provider: "nebius" | "openai" | null;
 } {
   const weeks = Math.max(1, input.weeks);
   return {
@@ -306,5 +403,7 @@ export function goalFirstResponse(input: {
     why: input.why,
     deals: input.deals ?? [],
     deal_search: input.dealSearch ?? "skipped",
+    model: input.model ?? null,
+    plan_provider: input.planProvider ?? null,
   };
 }

@@ -82,7 +82,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           storagePath: p.photoUrl,
         );
         if (!mounted) return;
-        setState(() => _assist[p.submissionId] = assist.reason);
+        setState(() => _assist[p.submissionId] = assist.shownReason);
       } catch (_) {
         // ponytail: assist is advisory; the card still works
       }

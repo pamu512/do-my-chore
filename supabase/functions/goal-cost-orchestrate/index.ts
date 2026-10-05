@@ -15,14 +15,16 @@ import { CORS } from "../_shared/cors.ts";
 import { searchDeals } from "../_shared/deals.ts";
 import {
   allowedPromptFields,
+  finishLlmEstimate,
   inferGoalMode,
   inferSlots,
   readGoalText,
   readTargetAmount,
   resolveEstimate,
   resolveWeeks,
+  type Estimate,
 } from "../_shared/goal_estimate.ts";
-import { chatCompletions } from "../_shared/llm.ts";
+import { chatCompletions, chatOk, llmErrorForFallback, type PublicLlmError } from "../_shared/llm.ts";
 import {
   buildSafeDealQuery,
   sanitizeGoalText,
@@ -37,7 +39,7 @@ async function llmOrDeterministicEstimate(input: {
   weeks: number;
   goalMode: string;
   kidAge: number;
-}) {
+}): Promise<{ estimate: Estimate; model: string | null; llmError: PublicLlmError | null }> {
   const fields = allowedPromptFields({
     goalText: input.title,
     kidAge: input.kidAge,
@@ -59,13 +61,27 @@ async function llmOrDeterministicEstimate(input: {
       },
     ],
   });
-  return resolveEstimate({
+  if (!chatOk(result)) {
+    return {
+      estimate: resolveEstimate({
+        title: input.title,
+        enteredCost: input.enteredCost,
+        weeks: input.weeks,
+        goalMode: input.goalMode,
+      }),
+      model: null,
+      llmError: llmErrorForFallback(result),
+    };
+  }
+  return finishLlmEstimate({
     title: input.title,
     enteredCost: input.enteredCost,
     weeks: input.weeks,
     goalMode: input.goalMode,
-    llmText: result?.text,
-    llmProvider: result?.provider,
+    llmText: result.text,
+    llmProvider: result.provider,
+    llmModel: result.model,
+    baseHost: result.baseHost,
   });
 }
 
@@ -81,8 +97,12 @@ Deno.serve(async (req) => {
     const kidAge = Number(body.kidAge) > 0 ? Number(body.kidAge) : 9; // matches app kPrimaryKidAge
     const slots = inferSlots(title, body.goalMode);
     const skipLlm = skipLlmForGoal(title);
-    const estimate = skipLlm
-      ? resolveEstimate({ title, enteredCost, weeks, goalMode })
+    const estimated = skipLlm
+      ? {
+        estimate: resolveEstimate({ title, enteredCost, weeks, goalMode }),
+        model: null,
+        llmError: null,
+      }
       : await llmOrDeterministicEstimate({
         title,
         enteredCost,
@@ -90,18 +110,23 @@ Deno.serve(async (req) => {
         goalMode,
         kidAge,
       });
-    const weekly = estimate.likely / weeks;
+    const weekly = estimated.estimate.likely / weeks;
     const searched = await searchDeals(
-      buildSafeDealQuery(slots, goalMode, estimate.likely),
-      estimate.likely,
+      buildSafeDealQuery(slots, goalMode, estimated.estimate.likely),
+      estimated.estimate.likely,
     );
-    return Response.json({
-      estimate,
+    const payload = {
+      estimate: estimated.estimate,
+      model: estimated.model,
       weekly_save_suggestion: weekly,
       deals: searched.deals,
       deal_search: searched.dealSearch,
       weeks,
-    }, { headers: { ...CORS, "Content-Type": "application/json" } });
+    };
+    return Response.json(
+      estimated.llmError ? { ...payload, llm_error: estimated.llmError } : payload,
+      { headers: { ...CORS, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 400, headers: CORS });
   }

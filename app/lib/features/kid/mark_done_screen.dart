@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/dmc_theme.dart';
@@ -8,6 +9,19 @@ import '../../services/chore_progress_math.dart';
 import '../../services/chore_service.dart';
 import '../../services/queries.dart';
 import 'encouragement_widgets.dart';
+
+/// Bundled DEMO_WALK photo. Fold/laundry, else tidy/bed/room, else dishes
+/// (wash/dishes and any other title).
+String demoWalkPhotoAsset(String title) {
+  final t = title.toLowerCase();
+  if (t.contains('fold') || t.contains('laundry')) {
+    return 'assets/photos/laundry.jpg';
+  }
+  if (t.contains('tidy') || t.contains('bed') || t.contains('room')) {
+    return 'assets/photos/bed.jpg';
+  }
+  return 'assets/photos/dishes.jpg';
+}
 
 /// Kid marks a chore done. Photo chores open the camera; submit is blocked
 /// until a photo is attached. Copy is percent-based only.
@@ -35,36 +49,29 @@ class _MarkDoneScreenState extends State<MarkDoneScreen> {
   bool _sent = false;
 
   Future<void> _pickPhoto() async {
-    // DEMO_WALK: attach a tiny generated JPEG so the iOS Simulator walk
-    // can submit photo chores without a working camera UI.
+    // DEMO_WALK: camera stub only. The bundled photo still goes to live photo-assist.
     if (const bool.fromEnvironment('DEMO_WALK')) {
-      final f = File('${Directory.systemTemp.path}/demo_chore_photo.jpg');
-      await f.writeAsBytes(_kDemoJpeg, flush: true);
-      setState(() => _photoPath = f.path);
+      try {
+        final data = await rootBundle.load(demoWalkPhotoAsset(widget.chore.title));
+        final f = File('${Directory.systemTemp.path}/demo_chore_photo.jpg');
+        await f.writeAsBytes(
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+          flush: true,
+        );
+        if (!mounted) return;
+        setState(() => _photoPath = f.path);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not attach the demo photo: $e')),
+        );
+      }
       return;
     }
     final picker = ImagePicker();
     final x = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
     if (x != null) setState(() => _photoPath = x.path);
   }
-
-  /// Minimal valid JPEG (1x1 pixel) for DEMO_WALK photo submits.
-  static const _kDemoJpeg = <int>[
-    0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
-    0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
-    0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09,
-    0x09, 0x08, 0x0A, 0x0C, 0x14, 0x0D, 0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12,
-    0x13, 0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D, 0x1A, 0x1C, 0x1C, 0x20,
-    0x24, 0x2E, 0x27, 0x20, 0x22, 0x2C, 0x23, 0x1C, 0x1C, 0x28, 0x37, 0x29,
-    0x2C, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39, 0x3D, 0x38, 0x32,
-    0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01,
-    0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xFF, 0xC4, 0x00, 0x14, 0x00, 0x01,
-    0x00, 0x00, 000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x08, 0xFF, 0xC4, 0x00, 0x14, 0x10, 0x01, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00,
-    0x7F, 0xFF, 0xD9,
-  ];
 
   Future<void> _submit() async {
     if (widget.chore.requiresPhoto && _photoPath == null) return;
