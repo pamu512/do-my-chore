@@ -57,7 +57,7 @@ double parentSaveProgress({required double saved, required double cost});  // ca
 
 ## AI surfaces
 
-Shared helper: `supabase/functions/_shared/llm.ts`. Selection order is `NEBIUS_API_KEY` (Token Factory + Nemotron) → `OPENAI_API_KEY` (gpt-4o-mini) → deterministic / abstain. Nebius is never required.
+Shared helper: `supabase/functions/_shared/llm.ts`. Selection order is `NEBIUS_API_KEY` (Nebius Token Factory) → `OPENAI_API_KEY` (gpt-4o-mini) → deterministic / abstain. Text calls use Nemotron `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` on Token Factory. Photo checks use Nebius Token Factory with `Qwen/Qwen3.8-27B` (set via `NEBIUS_VISION_MODEL`; Token Factory has no Nemotron vision model on this account). Nebius is never required.
 
 ### POST /functions/v1/suggest-plan
 
@@ -70,6 +70,7 @@ Input `{ title, targetAmount, targetDate, kidAge }` -> `{ weekly_parent_save, ch
 
 Input `{ choreTitle, image }` -> `{ suggest: approve|reject|abstain, reason }`.
 - Vision prompt only for visually verifiable chores; abstains otherwise; **parent is always final**.
+- Photo checks run on Nebius Token Factory with `Qwen/Qwen3.8-27B` when `NEBIUS_API_KEY` is set. Override with `NEBIUS_VISION_MODEL`. Token Factory has no Nemotron vision model on this account.
 
 ### POST /functions/v1/goal-cost-orchestrate
 

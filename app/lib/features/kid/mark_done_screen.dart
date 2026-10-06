@@ -223,7 +223,8 @@ class MarkDoneView extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           if (chore.requiresPhoto) ...[
-            Text('This one needs a photo so your parent can see it.',
+            Text(
+                'This one needs a photo so your parent can see it. The photo check runs on Nebius Token Factory with Qwen3.8-27B.',
                 style: TextStyle(fontSize: 13, color: Dmc.muted)),
             const SizedBox(height: 8),
             if (photoPath != null)
@@ -285,7 +286,7 @@ class MarkDoneView extends StatelessWidget {
                     const SizedBox(width: 9),
                     Expanded(
                       child: Text(
-                        'Photo attached - it counts once your parent takes a look.',
+                        'Photo attached. The photo check runs on Nebius Token Factory with Qwen3.8-27B. It counts once your parent takes a look.',
                         style: TextStyle(fontSize: 13.5, color: Dmc.pineDeep),
                       ),
                     ),

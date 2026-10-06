@@ -1,0 +1,59 @@
+{
+  "estimate": {
+    "low": 70,
+    "likely": 120,
+    "high": 180,
+    "currency": "USD",
+    "rationale": "A Lego castle set for an 8-year-old typically costs around $120 today, with cheaper basic kits near $70 and premium versions up to $180. This range reflects current market prices for similar themed sets.",
+    "provider": "nebius"
+  },
+  "weekly_save_suggestion": 8.571428571428571,
+  "weeks": 14,
+  "slots": {
+    "goal_mode": "kid_item",
+    "party_size_default": 1
+  },
+  "weekly_parent_save": 9,
+  "chores": [
+    {
+      "library_chore_id": "make-your-bed",
+      "title": "Make your bed",
+      "cadence": "daily",
+      "weight_pct": 40,
+      "requires_photo": true,
+      "is_makeup": false
+    },
+    {
+      "library_chore_id": "wash-the-dishes",
+      "title": "Wash the dishes",
+      "cadence": "daily",
+      "weight_pct": 35,
+      "requires_photo": true,
+      "is_makeup": false
+    },
+    {
+      "library_chore_id": "vacuum-the-living-room",
+      "title": "Vacuum the living room",
+      "cadence": "weekly",
+      "weight_pct": 15,
+      "requires_photo": true,
+      "is_makeup": false
+    },
+    {
+      "library_chore_id": "take-out-the-recycling",
+      "title": "Take out the recycling",
+      "cadence": "weekly",
+      "weight_pct": 10,
+      "requires_photo": true,
+      "is_makeup": false
+    }
+  ],
+  "why": "Saving about $9 each week adds up to the $120 needed in 14 weeks. The chores are simple habits a kid can do and show with a quick photo. Doing them daily or weekly builds a steady routine that helps reach the goal.",
+  "deals": [],
+  "deal_search": "skipped",
+  "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+  "plan_provider": "nebius",
+  "http_status": 200,
+  "captured_at": "2026-10-06T01:02:45Z",
+  "elapsed_ms": 8349
+}

@@ -74,7 +74,7 @@ Supabase Edge Functions
          │
          ▼
     _shared/llm.ts
-         ├─ NEBIUS_API_KEY → Token Factory + Nemotron
+         ├─ NEBIUS_API_KEY → Token Factory (text: Nemotron, vision: Qwen/Qwen3.8-27B)
          ├─ else OPENAI_API_KEY → gpt-4o-mini
          └─ else deterministic / abstain
 ```
@@ -84,7 +84,7 @@ Keys never live in the Flutter binary. One provider-order policy for all LLM cal
 **Default models**
 
 - Text: `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` (override `NEBIUS_TEXT_MODEL`)
-- Vision: `nvidia/Nemotron-3-Nano-Omni` (override `NEBIUS_VISION_MODEL`)
+- Vision: `Qwen/Qwen3.8-27B` (override `NEBIUS_VISION_MODEL`). This Token Factory account has no Nemotron vision model (`nvidia/nemotron-3-nano-omni` returned 404).
 - Thinking off; strip `<think>` before JSON parse.
 
 ---

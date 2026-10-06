@@ -1,0 +1,9 @@
+{
+  "suggest": "reject",
+  "reason": "The photo shows a neatly made bed, which is lovely, but it doesn't show any evidence that the dishes were washed.",
+  "provider": "nebius",
+  "model": "Qwen/Qwen3.8-27B",
+  "http_status": 200,
+  "captured_at": "2026-10-06T01:02:51Z",
+  "elapsed_ms": 2546
+}

@@ -161,12 +161,12 @@ void main() {
       'suggest': 'approve',
       'reason': 'The dishes look washed.',
       'provider': 'nebius',
-      'model': 'nvidia/Nemotron-3-Nano-Omni',
+      'model': 'Qwen/Qwen3.8-27B',
     });
     expect(live.suggest, 'approve');
     expect(live.provider, 'nebius');
-    expect(live.model, 'nvidia/Nemotron-3-Nano-Omni');
-    expect(live.shownReason, 'The dishes look washed. (nvidia/Nemotron-3-Nano-Omni)');
+    expect(live.model, 'Qwen/Qwen3.8-27B');
+    expect(live.shownReason, 'The dishes look washed. (Qwen/Qwen3.8-27B)');
 
     final abstain = PhotoAssistResult.fromJson({
       'suggest': 'abstain',

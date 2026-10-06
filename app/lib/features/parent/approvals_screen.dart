@@ -352,7 +352,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                       child: Text(
                         photo
                             ? (_assist[p.submissionId] ??
-                                'AI assist is advisory only. The photo check-in is a habit cue, not a payroll audit - you decide.')
+                                'The photo check runs on Nebius Token Factory with Qwen3.8-27B. It is advisory only. You decide.')
                             : 'No photo needed - your word is final here.',
                         style: TextStyle(
                             fontSize: 13, height: 1.45, color: Dmc.ink2),

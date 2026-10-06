@@ -1,6 +1,6 @@
 // OpenAI-compatible chat/completions helper for Token Factory + OpenAI.
 // Selection order (must not require Nebius for Basics):
-//   1. NEBIUS_API_KEY → Token Factory + Nemotron
+//   1. NEBIUS_API_KEY → Token Factory. Text: Nemotron. Vision: Qwen/Qwen3.8-27B
 //   2. OPENAI_API_KEY → https://api.openai.com/v1/ + gpt-4o-mini
 //   3. no key → caller uses deterministic / abstain
 //
@@ -12,15 +12,16 @@
 //   nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B
 // Super (optional, not the default): nvidia/nemotron-3-super-120b-a12b
 //
-// Vision: the public catalog lists Nano as text2text. Account listings and
-// third-party catalogs use nvidia/Nemotron-3-Nano-Omni. Override with
-// NEBIUS_VISION_MODEL if your project shows a different id.
+// Vision: this Token Factory account lists no Nemotron vision model.
+// nvidia/nemotron-3-nano-omni returned 404. Default is Qwen/Qwen3.8-27B
+// (image2text on api.tokenfactory.nebius.com /models). Override with
+// NEBIUS_VISION_MODEL.
 
 export const NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1/";
 export const OPENAI_BASE_URL = "https://api.openai.com/v1/";
 
 export const NEBIUS_TEXT_MODEL = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B";
-export const NEBIUS_VISION_MODEL = "nvidia/Nemotron-3-Nano-Omni";
+export const NEBIUS_VISION_MODEL = "Qwen/Qwen3.8-27B";
 export const OPENAI_TEXT_MODEL = "gpt-4o-mini";
 
 export type LlmProvider = "nebius" | "openai";

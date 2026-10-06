@@ -35,9 +35,10 @@ Deno.test("returns null when no keys are set (Basics path)", () => {
   assertEquals(resolveLlmProvider({ NEBIUS_API_KEY: "", OPENAI_API_KEY: "  " }), null);
 });
 
-Deno.test("default vision model is Nemotron Nano Omni", () => {
+Deno.test("default vision model is Qwen/Qwen3.8-27B", () => {
   const resolved = resolveLlmProvider({ NEBIUS_API_KEY: "neb-key" });
-  assertEquals(resolved?.visionModel, NEBIUS_VISION_MODEL);
+  assertEquals(NEBIUS_VISION_MODEL, "Qwen/Qwen3.8-27B");
+  assertEquals(resolved?.visionModel, "Qwen/Qwen3.8-27B");
   assertEquals(resolved?.textModel, NEBIUS_TEXT_MODEL);
 });
 

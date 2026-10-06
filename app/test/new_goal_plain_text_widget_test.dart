@@ -12,7 +12,7 @@ import 'package:do_my_chore/services/goal_service.dart';
 ///
 /// Green under plain `flutter test` (CI): the client tries the suggest-plan
 /// function first (DEMO_WALK no longer skips that call). The invoke times out
-/// in the test binding after 8s of virtual time and falls back to the local
+/// in the test binding after 25s of virtual time and falls back to the local
 /// deterministic result, so the pump budget below must exceed that timeout.
 void main() {
   test('localGoalFirstSuggest with null amount yields family_trip prior', () {
@@ -67,9 +67,9 @@ void main() {
     expect(tester.widget<TextField>(fields.at(1)).controller?.text ?? '', isEmpty);
 
     await tester.tap(find.text('Suggest plan'));
-    // The function invoke times out at 8s virtual time before the local
-    // fallback renders; 200 x 50ms covers it with margin.
-    for (var i = 0; i < 200; i++) {
+    // The function invoke times out at 25s virtual time before the local
+    // fallback renders; 560 x 50ms covers it with margin.
+    for (var i = 0; i < 560; i++) {
       await tester.pump(const Duration(milliseconds: 50));
       if (find.text('SAVE ESTIMATE').evaluate().isNotEmpty ||
           find.textContaining('Could not build plan').evaluate().isNotEmpty) {

@@ -1,0 +1,9 @@
+{
+  "suggest": "approve",
+  "reason": "The dishes are neatly washed and drying on the rack, so it looks like the chore was completed.",
+  "provider": "nebius",
+  "model": "Qwen/Qwen3.8-27B",
+  "http_status": 200,
+  "captured_at": "2026-10-06T01:02:49Z",
+  "elapsed_ms": 3806
+}

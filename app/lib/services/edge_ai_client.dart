@@ -53,7 +53,7 @@ Future<PhotoAssistResult> invokePhotoAssist(
     final res = await client.functions.invoke(
       'photo-assist',
       body: {'choreTitle': choreTitle, 'image': imageBase64},
-    ).timeout(const Duration(seconds: 8));
+    ).timeout(const Duration(seconds: 25));
     final data = res.data;
     if (data is Map) {
       return PhotoAssistResult.fromJson(Map<String, dynamic>.from(data));
@@ -88,7 +88,7 @@ Future<CostOrchestrateResult> invokeGoalCostOrchestrate(
         'goalMode': goalMode,
         'kidAge': kidAge,
       },
-    ).timeout(const Duration(seconds: 12));
+    ).timeout(const Duration(seconds: 25));
     final data = res.data;
     if (data is Map) {
       return parseCostOrchestrateResponse(
@@ -276,7 +276,7 @@ extension GoalServiceAi on GoalService {
           'kidAge': kidAge,
           'goalMode': goalMode,
         },
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 25));
       final data = res.data;
       if (data is Map) {
         return parseSuggestPlanPayload(

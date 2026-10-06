@@ -75,7 +75,7 @@ supabase functions deploy photo-assist --project-ref mqwgmaiigynmmxpnejrf
 supabase functions deploy goal-cost-orchestrate --project-ref mqwgmaiigynmmxpnejrf
 ```
 
-Text calls use NVIDIA Nemotron `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` on Nebius Token Factory (`https://api.tokenfactory.nebius.com/v1/`). Photo checks use `nvidia/Nemotron-3-Nano-Omni`. Both ids are the defaults in `supabase/functions/_shared/llm.ts`.
+Text calls use NVIDIA Nemotron `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` on Nebius Token Factory (`https://api.tokenfactory.nebius.com/v1/`). Photo checks use Nebius Token Factory with `Qwen/Qwen3.8-27B` (set via `NEBIUS_VISION_MODEL`; Token Factory has no Nemotron vision model on this account). Both ids are the defaults in `supabase/functions/_shared/llm.ts`.
 
 Optional function secrets override those defaults: `NEBIUS_BASE_URL` (default `https://api.tokenfactory.nebius.com/v1/`), `NEBIUS_VISION_BASE_URL` (vision calls only; falls back to `NEBIUS_BASE_URL`), `NEBIUS_TEXT_MODEL`, and `NEBIUS_VISION_MODEL`.
 

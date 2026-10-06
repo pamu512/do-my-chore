@@ -8,7 +8,7 @@ Do not put keys in git. Set them as Supabase function secrets (hosted) or `supab
 
 Every LLM call (`suggest-plan`, `photo-assist`, `goal-cost-orchestrate`) uses the same helper (`supabase/functions/_shared/llm.ts`):
 
-1. If `NEBIUS_API_KEY` is set → [Token Factory](https://api.tokenfactory.nebius.com/v1/) + Nemotron
+1. If `NEBIUS_API_KEY` is set → [Token Factory](https://api.tokenfactory.nebius.com/v1/). Text calls use Nemotron. Photo checks use `Qwen/Qwen3.8-27B`.
 2. Else if `OPENAI_API_KEY` is set → existing OpenAI `gpt-4o-mini` path
 3. Else → deterministic plan / photo-assist abstain / deterministic cost bands
 
@@ -38,7 +38,7 @@ Text (default, listed on the [public Token Factory catalog](https://tokenfactory
 - `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
 - Super (not the default): `nvidia/nemotron-3-super-120b-a12b`
 
-Vision: the public catalog lists Nano as **text2text**. Account / third-party listings use `nvidia/Nemotron-3-Nano-Omni`. That string is the default constant in `_shared/llm.ts`. If your project shows a different id, set `NEBIUS_VISION_MODEL` (or edit the constant). Set `NEBIUS_BASE_URL` to point text calls at a different Token Factory host. Set `NEBIUS_VISION_BASE_URL` when the vision model lives on another host (for example `https://api.tokenfactory.us-central1.nebius.com/v1/`). Photo Assist abstains with "not configured" when no key is set. A failed vision call abstains with "check failed" and includes `llm_error`.
+Photo checks use Nebius Token Factory with `Qwen/Qwen3.8-27B` (image2text on this account's `/models` list; default in `_shared/llm.ts`). Set `NEBIUS_VISION_MODEL` to override. Token Factory has no Nemotron vision model on this account (`nvidia/nemotron-3-nano-omni` returned 404). Set `NEBIUS_BASE_URL` to point text calls at a different Token Factory host. Set `NEBIUS_VISION_BASE_URL` when the vision model lives on another host (for example `https://api.tokenfactory.us-central1.nebius.com/v1/`). Photo Assist abstains with "not configured" when no key is set. A failed vision call abstains with "check failed" and includes `llm_error`.
 
 Every `llm_error` from a live call includes `base_host` (hostname only, never the key). A 404 that says the model does not exist also includes `available_models` (up to 25 ids, with ids matching omni / vl / vision / nemotron first). A 200 whose text cannot be parsed or fails validation still returns the deterministic fallback, and sets `llm_error.reason` to `unparseable_output`, `invalid_estimate`, or `invalid_plan`, plus `sample` (first 400 characters of the stripped model text).
 
