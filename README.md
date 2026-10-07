@@ -6,6 +6,10 @@ Project site: https://pamu512.github.io/do-my-chore/
 
 The kid earns the goal through weighted habit chores - a percent bar, never dollars. The parent plans the real cost with an AI-suggested save schedule. Two accountabilities, one goal.
 
+Demo video (1:09): https://youtu.be/Ie_Vj2_QrQY
+
+[![Parent home screen in the Do My Chore app](docs/assets/demo-cover-parent-home.png)](https://youtu.be/Ie_Vj2_QrQY)
+
 ## The demo loop
 
 1. Parent creates a goal - family trip or kid item, real cost, target date (Disneyland, $3,500, ~14 weeks) → **Suggest plan** drafts the weekly parent save plus weighted chores summing to **at least 100%**, with a plain-language *why* → edit anything → accept
