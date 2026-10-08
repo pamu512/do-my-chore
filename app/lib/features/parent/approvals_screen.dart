@@ -211,7 +211,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.cloud_off_outlined,
-                    size: 30, color: Color(0xFF9AA39B)),
+                    size: 30, color: Dmc.faint),
                 const SizedBox(height: 10),
                 Text('Couldn\'t load the inbox',
                     style:
@@ -241,7 +241,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.inbox_outlined, size: 30, color: const Color(0xFF9AA39B)),
+              const Icon(Icons.inbox_outlined, size: 30, color: Dmc.faint),
               const SizedBox(height: 10),
               Text('Nothing waiting.',
                   style: Dmc.displayStyle(size: 18, weight: FontWeight.w600)),
