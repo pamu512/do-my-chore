@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/demo_auth.dart';
 import '../models/role.dart';
+import 'edge_ai_client.dart';
+import 'jpeg_exif.dart';
 
 /// Allowed submission status transitions. A rejected row is never flipped
 /// back to pending — a retry always inserts a new submission row.
@@ -28,9 +31,16 @@ String rejectNudge({required String choreTitle, String? parentNote}) {
 }
 
 class ChoreService {
-  ChoreService(this._clients);
+  ChoreService(
+    this._clients, {
+    this.pendingForParentOverride,
+  });
 
   final RoleClients _clients;
+
+  /// Widget tests pass this so the parent inbox does not query Supabase.
+  /// Production leaves it null. Items must be pending-approval records.
+  final Future<List<Object>> Function()? pendingForParentOverride;
 
   SupabaseClient get _parent => _clients.forRole(Role.parent);
   SupabaseClient get _kid => _clients.forRole(Role.kid);
@@ -79,7 +89,13 @@ class ChoreService {
         .single();
     final familyId = row['family_id'] as String;
     final path = '$familyId/$choreId-${DateTime.now().millisecondsSinceEpoch}.jpg';
-    await _kid.storage.from('chore-photos').upload(path, File(localPhotoPath));
+    final raw = await File(localPhotoPath).readAsBytes();
+    final cleaned = stripJpegExif(raw);
+    await _kid.storage.from('chore-photos').uploadBinary(
+          path,
+          cleaned,
+          fileOptions: const FileOptions(contentType: 'image/jpeg'),
+        );
     await submitChore(
       choreId: choreId,
       photoUrl: path,
@@ -90,7 +106,42 @@ class ChoreService {
 
   /// Parent-side signed URL for a stored chore photo (private bucket).
   Future<String> photoUrl(String storagePath) {
-    return _parent.storage.from('chore-photos').createSignedUrl(storagePath, 3600);
+    return _parent.storage
+        .from('chore-photos')
+        .createSignedUrl(storagePath, kChorePhotoSignedUrlTtlSeconds);
+  }
+
+  /// Advisory photo-assist for a pending card. Parent stays final.
+  Future<PhotoAssistResult> assistPending({
+    required String choreTitle,
+    String? storagePath,
+  }) async {
+    String? b64;
+    final path = storagePath;
+    if (path != null && path.isNotEmpty) {
+      try {
+        final signed = await photoUrl(path);
+        final client = HttpClient();
+        try {
+          final req = await client.getUrl(Uri.parse(signed));
+          final res = await req.close().timeout(const Duration(seconds: 6));
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            final bytes = await res.fold<List<int>>(<int>[], (a, b) => a..addAll(b));
+            // Never log image bytes or the base64 payload.
+            if (bytes.isNotEmpty) b64 = base64Encode(bytes);
+          }
+        } finally {
+          client.close(force: true);
+        }
+      } catch (_) {
+        // ponytail: missing photo / storage → function abstains
+      }
+    }
+    return invokePhotoAssist(
+      _parent,
+      choreTitle: choreTitle,
+      imageBase64: b64,
+    );
   }
 
   /// Parent approves: flips the submission to approved. Progress is derived

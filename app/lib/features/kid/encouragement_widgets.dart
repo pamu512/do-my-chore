@@ -171,7 +171,7 @@ class KidDayDoneCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Parent checks the photos, then it counts. New chores land tomorrow.',
+                'The photo check runs on Nebius Token Factory with Qwen3.8-27B. Parent checks, then it counts. New chores land tomorrow.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
               ),

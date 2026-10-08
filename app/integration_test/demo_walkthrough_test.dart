@@ -70,6 +70,10 @@ void main() {
     );
     await tester.tap(find.text('Accept plan'));
     await _settle(tester, 2000);
+    if (find.textContaining('WHAT WILL THIS REALLY COST').evaluate().isNotEmpty) {
+      await tester.tap(find.textContaining('Keep my'));
+      await _settle(tester, 1500);
+    }
     expect(find.textContaining('Camping trip'), findsWidgets);
     await _shot(binding, 'beat-03');
     // Keep beats 4-8 deterministic on the seeded Disneyland goal: archive the

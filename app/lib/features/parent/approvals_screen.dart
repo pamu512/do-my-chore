@@ -33,11 +33,18 @@ class ApprovalsScreen extends StatefulWidget {
 
 class _ApprovalsScreenState extends State<ApprovalsScreen> {
   List<PendingApproval> _pending = const [];
+  final Map<String, String> _assist = {};
   bool _loading = true;
   String? _error;
 
   // Signed URLs for submitted photos, keyed by storage path.
   final Map<String, Future<String>> _photoFutures = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
 
   @override
   void dispose() {
@@ -46,8 +53,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   Future<void> _refresh() async {
+    List<PendingApproval> pending = const [];
     try {
-      final pending = collapsePendingByLibraryId(
+      pending = collapsePendingByLibraryId(
         await widget.service.pendingForParent(),
       );
       if (mounted) {
@@ -63,6 +71,20 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           _loading = false;
           _error = 'Could not load approvals. Pull to retry.';
         });
+      }
+      return;
+    }
+    for (final p in pending) {
+      if (!p.requiresPhoto) continue;
+      try {
+        final assist = await widget.service.assistPending(
+          choreTitle: p.choreTitle,
+          storagePath: p.photoUrl,
+        );
+        if (!mounted) return;
+        setState(() => _assist[p.submissionId] = assist.shownReason);
+      } catch (_) {
+        // ponytail: assist is advisory; the card still works
       }
     }
   }
@@ -329,7 +351,8 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                     Expanded(
                       child: Text(
                         photo
-                            ? 'Looks complete - you make the call.'
+                            ? (_assist[p.submissionId] ??
+                                'The photo check runs on Nebius Token Factory with Qwen3.8-27B. It is advisory only. You decide.')
                             : 'No photo needed - your word is final here.',
                         style: TextStyle(
                             fontSize: 13, height: 1.45, color: Dmc.ink2),
