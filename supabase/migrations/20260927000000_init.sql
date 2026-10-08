@@ -1,4 +1,4 @@
--- Do My Chore — initial schema (design rev 2)
+-- Do My Chore, initial schema (design rev 2)
 -- Money truth lives in ledger_entries; goals carry NO balance column.
 -- chore_submissions carries a denormalized family_id so RLS policies stay join-free.
 
@@ -29,7 +29,7 @@ create table public.goals (
   status text not null default 'active' check (status in ('active', 'achieved', 'archived')),
   created_at timestamptz not null default now()
 );
--- NOTE: intentionally no balance column — balances are summed from ledger_entries on read.
+-- NOTE: intentionally no balance column. Balances are summed from ledger_entries on read.
 
 create table public.chores (
   id uuid primary key default gen_random_uuid(),

@@ -1,4 +1,4 @@
--- Do My Chore — rev 3 demo seed (LOCAL DEMO ONLY)
+-- Do My Chore, rev 3 demo seed (LOCAL DEMO ONLY)
 -- Kid earns 100% of the goal through weighted chores; parent plans the money.
 -- Fixed UUIDs so tests and the demo video are deterministic.
 -- Credentials are documented in README as demo-only; never reuse.
@@ -44,7 +44,7 @@ insert into public.goals (id, family_id, kid_id, title, target_amount, target_da
    '00000000-0000-0000-0000-0000000000a2',
    'Disneyland', 3500.00, current_date + 98, 'active', 'family_trip', false);
 
--- chores: spec worked example — weights sum to exactly 100%
+-- chores: spec worked example. Weights sum to exactly 100%
 -- bed 40 daily, dishes 30 daily, laundry 20 weekly, itinerary 10 once
 insert into public.chores (id, goal_id, kid_id, title, cadence, weight_pct, requires_photo, is_makeup, is_bonus, library_chore_id) values
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b1',

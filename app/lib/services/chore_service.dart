@@ -6,12 +6,12 @@ import '../core/demo_auth.dart';
 import '../models/role.dart';
 
 /// Allowed submission status transitions. A rejected row is never flipped
-/// back to pending — a retry always inserts a new submission row.
+/// back to pending. A retry always inserts a new submission row.
 const Map<String, List<String>> kAllowedTransitions = {
   'pending': ['approved', 'rejected'],
 };
 
-/// A kid may only submit with a photo when the chore demands one — and a
+/// A kid may only submit with a photo when the chore demands one, and a
 /// photo chore without a photo is blocked client-side AND at submit time.
 void assertSubmittable({required bool requiresPhoto, required bool hasPhoto}) {
   if (requiresPhoto && !hasPhoto) {

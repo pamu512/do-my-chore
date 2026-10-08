@@ -1,4 +1,4 @@
-// Photo Assist edge function — suggests approve/reject for visually
+// Photo Assist edge function. Suggests approve/reject for visually
 // verifiable chores only. Without OPENAI_API_KEY it abstains with a clear
 // reason. The parent is always final: this is a suggestion on the approval
 // card, never an action.
@@ -47,7 +47,7 @@ async function assistWithVision(choreTitle: string, imageBase64: string): Promis
                 text:
                   `A kid claims they finished the chore: "${choreTitle}". ` +
                   "Look at the photo. Reply ONLY JSON: {\"suggest\": \"approve\"|\"reject\", \"reason\": string}. " +
-                  "The reason is one kind sentence for the parent. You are not certain — if the photo is unclear, suggest reject gently.",
+                  "The reason is one kind sentence for the parent. You are not certain. If the photo is unclear, suggest reject gently.",
               },
               { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
             ],
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const { choreTitle, image } = await req.json();
     if (!isVisuallyVerifiable(String(choreTitle))) {
       return Response.json(
-        abstain("This chore is not visually checkable — decide based on trust."),
+        abstain("This chore is not visually checkable. Decide based on trust."),
         { headers: { ...CORS, "Content-Type": "application/json" } },
       );
     }
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     }
     const assisted = await assistWithVision(String(choreTitle), String(image));
     return Response.json(
-      assisted ?? abstain("Photo check is not configured — your call, parent."),
+      assisted ?? abstain("Photo check is not configured. Your call, parent."),
       { headers: { ...CORS, "Content-Type": "application/json" } },
     );
   } catch (e) {

@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/role.dart';
 import 'supabase_config.dart';
 
-/// Two ready Supabase clients — one signed in as the demo parent, one as the
+/// Two ready Supabase clients: one signed in as the demo parent, one as the
 /// demo kid. Switching roles never re-authenticates, and every data call runs
 /// under the active role's JWT, so RLS is always enforced by the backend.
 class RoleClients {

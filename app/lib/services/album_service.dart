@@ -18,7 +18,7 @@ class AlbumItem {
 }
 
 /// Goal Album: photos from approved submissions, deletable by the parent.
-/// All photos are demo/test data only — see the privacy copy in the album UI.
+/// All photos are demo/test data only. See the privacy copy in the album UI.
 class AlbumService {
   AlbumService(this._clients);
 
