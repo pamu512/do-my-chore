@@ -94,7 +94,7 @@ class _AlbumScreenState extends State<AlbumScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.photo_outlined,
-                                size: 30, color: const Color(0xFF9AA39B)),
+                                size: 30, color: Dmc.faint),
                             const SizedBox(height: 10),
                             Text('No photos in the album yet.',
                                 style: Dmc.displayStyle(
