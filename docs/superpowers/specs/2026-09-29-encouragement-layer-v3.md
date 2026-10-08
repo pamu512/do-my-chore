@@ -1,9 +1,9 @@
-# Do My Chore — Encouragement layer (V3)
+# Do My Chore: Encouragement layer (V3)
 
 **Date:** 2026-09-29  
 **Status:** Locked for implement (Anoop approved direction; nits applied this date)  
 **Sits on:** rev-3 money model (`docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md`)  
-**Hackathon:** Build With AI: Basics — still a submission artifact; Basics demo video remains on hold separately  
+**Hackathon:** Build With AI: Basics, still a submission artifact; Basics demo video remains on hold separately  
 **Mockup:** V3 HTML deck (encouragement layer). Where mockup copy conflicts with nits below, **nits win**.
 
 ## 1. Problem
@@ -29,10 +29,10 @@ V3 is an **emotional feedback layer only**. It does not change weights, credits,
 
 ### 2.2 Celebration
 
-- **Day complete** (every Today chore is `sent` for this period — see §4): card “That's today done.” + soft confetti (skip when `MediaQuery.disableAnimations`) + chip “+{X}% moved the bar today” + calm copy that the parent still has to look. **Pending rows stay on the list** as “Sent - waiting for your parent”. They do not vanish.
+- **Day complete** (every Today chore is `sent` for this period, see §4): card “That's today done.” + soft confetti (skip when `MediaQuery.disableAnimations`) + chip “+{X}% moved the bar today” + calm copy that the parent still has to look. **Pending rows stay on the list** as “Sent - waiting for your parent”. They do not vanish.
 - `{X}` is the sum of existing `instanceCreditPct` for chores whose latest submission was created today. The HTML mock’s “+5.7%” is illustrative only; shipped math is the same per-check-in % already shown on Mark Done / Approvals (demo bed at 14 weeks is ~+0.4%, not 5.7).
 - **Mark Done after send:** do not `pop` immediately. Show “Sent to your parent.” / “The bar moves the moment they take a look.” then **Back to today**.
-- **Goal at 100%:** full-screen finale. Reuse the existing Today hero image (`assets/photos/castle.jpg` — no goal cover column exists). Headline “You earned it.” Hand-off: parent takes it from here / talk about the trip (or the reward) together. **No dollars** on kid screens.
+- **Goal at 100%:** full-screen finale. Reuse the existing Today hero image (`assets/photos/castle.jpg`, no goal cover column exists). Headline “You earned it.” Hand-off: parent takes it from here / talk about the trip (or the reward) together. **No dollars** on kid screens.
 
 ### 2.3 Soft pace (path, not debt)
 
@@ -63,7 +63,7 @@ V3 is an **emotional feedback layer only**. It does not change weights, credits,
 
 ## 3. Non-goals
 
-- No new Supabase table or column if `reject_nudge` stays sufficient (it is — see §5).
+- No new Supabase table or column if `reject_nudge` stays sufficient (it is, see §5).
 - No change to approve RPC, weights, instance credits, or parent save math.
 - Do not touch Nebius / token-factory three-beat work (`feat/nebius-token-factory`, PR #3).
 - Do not merge until Anoop greenlights. Do not revive the Basics demo video in this slice.
@@ -77,7 +77,7 @@ V3 is an **emotional feedback layer only**. It does not change weights, credits,
 
 | Latest submission | Cadence rule | Kid row |
 | --- | --- | --- |
-| none | — | **open** (tappable) |
+| none | n/a | **open** (tappable) |
 | `rejected` | any | **next try** (tappable, badge + note) |
 | `pending` | any | **sent** (not tappable) |
 | `approved` | `once` | **sent** (complete for the goal) |
@@ -102,18 +102,18 @@ V3 is an **emotional feedback layer only**. It does not change weights, credits,
 2. After the kid sends a chore, Mark Done shows the sent confirmation (not an instant pop). Today keeps the row as “Sent - waiting for your parent”.
 3. When every Today chore is sent, the day-done card + chip + (motion-safe) confetti appear; pending rows remain.
 4. When `kidBehindPace` and at least one chore is open, the cream pace card and slow hero line appear; copy is path-only; no Slow week chip.
-5. Open (on-pace) hero is “Every check-in moves the bar.” — never “100% earns the trip.”
+5. Open (on-pace) hero is “Every check-in moves the bar.” Never “100% earns the trip.”
 6. At 100% approved progress, the kid sees the full-screen finale; no `$` on that screen.
 7. Grep of kid-visible strings finds none of the banned words. `flutter test` green. Integration walkthrough updated (**Send back**, **NEXT TRY**).
 8. Implementation PR stays off the Nebius branch; merge waits for Anoop.
 
 ## 7. Code anchors (current main)
 
-- `app/lib/features/parent/approvals_screen.dart` — `_reject` uses default `rejectNudge` then `rejectSubmission`; button still “Reject with nudge”; no sheet.
-- `app/lib/services/chore_service.dart` — `rejectNudge`, `rejectSubmission`.
-- `app/lib/features/kid/today_screen.dart` — “Try again - …”, badge **TRY AGAIN**, hero “Keep the habits going. 100% earns the trip.”
-- `app/lib/features/kid/mark_done_screen.dart` — “PARENT SAID”; `Navigator.pop` on successful send.
-- `app/lib/core/dmc_theme.dart` — Ledger tokens (porcelain / pine / marigold).
-- `app/lib/services/chore_progress_math.dart`, `app/lib/services/queries.dart` — % credit and pace.
-- `app/test/overshoot_test.dart` — asserts default nudge contains “try again” (must retarget).
-- `app/integration_test/demo_walkthrough_test.dart` — finds “Reject with nudge” and “Try again”.
+- `app/lib/features/parent/approvals_screen.dart`, `_reject` uses default `rejectNudge` then `rejectSubmission`; button still “Reject with nudge”; no sheet.
+- `app/lib/services/chore_service.dart`, `rejectNudge`, `rejectSubmission`.
+- `app/lib/features/kid/today_screen.dart`, “Try again - …”, badge **TRY AGAIN**, hero “Keep the habits going. 100% earns the trip.”
+- `app/lib/features/kid/mark_done_screen.dart`, “PARENT SAID”; `Navigator.pop` on successful send.
+- `app/lib/core/dmc_theme.dart`, Ledger tokens (porcelain / pine / marigold).
+- `app/lib/services/chore_progress_math.dart`, `app/lib/services/queries.dart`, % credit and pace.
+- `app/test/overshoot_test.dart`, asserts default nudge contains “try again” (must retarget).
+- `app/integration_test/demo_walkthrough_test.dart`, finds “Reject with nudge” and “Try again”.

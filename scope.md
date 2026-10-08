@@ -1,4 +1,4 @@
-# Do My Chore — Scope
+# Do My Chore: Scope
 
 > Hackathon: [Build With AI: Basics](https://learn-ai-basics.devpost.com/) · Authoritative design: [`docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md`](docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md) (rev 3)
 

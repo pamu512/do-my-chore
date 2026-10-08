@@ -1,4 +1,4 @@
-# Do My Chore — Technical Spec
+# Do My Chore: Technical Spec
 
 > Rev 3 money model is authoritative: [`docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md`](docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md) · Plan: [`docs/superpowers/plans/2026-09-27-do-my-chore-money-model-rev3.md`](docs/superpowers/plans/2026-09-27-do-my-chore-money-model-rev3.md)
 

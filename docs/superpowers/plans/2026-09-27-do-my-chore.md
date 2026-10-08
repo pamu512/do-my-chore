@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Spec (authoritative): `docs/superpowers/specs/2026-09-27-do-my-chore-design.md` (rev 2)
-- **Empty folder / new repo only** — no ReadyPup or Care Ladder code
+- **Empty folder / new repo only**, no ReadyPup or Care Ladder code
 - In-app ledger only; no banking/KYC/cards; copy says parent settles real money offline
 - COPPA-style consent out of scope; demo photos are test data only
 - `requires_photo` only for visually verifiable chores; parent always final on approve
@@ -20,7 +20,7 @@
 - RLS on all family-scoped tables + storage paths prefixed by `family_id`
 - AI “why this plan” in plain parent language; deterministic fallback if no LLM/vision key
 - Hackathon artifact, not portfolio product bet; Care Ladder still higher priority unless bumped
-- Demo UX: in-app role switch (prefer) or dual simulators; 1–3 min filmable loop
+- Demo UX: in-app role switch (prefer) or dual simulators; 1-3 min filmable loop
 - TDD: failing test → implement → pass → commit per task
 
 ---
@@ -70,7 +70,7 @@ do-my-chore/                          # new GitHub repo root
 
 **Files:**
 - Create: repo root, `README.md`, `LICENSE` (MIT), copy design+plan into `docs/superpowers/...`
-- Create: `scope.md`, `prd.md`, `spec.md` (content aligned to design; produced via Devpost Learn skill pack commands when Mac Hermes runs `/onboard`→`/scope`→`/prd`→`/spec`, or authored to match design if skills not installed yet — **must exist before Final Submit**)
+- Create: `scope.md`, `prd.md`, `spec.md` (content aligned to design; produced via Devpost Learn skill pack commands when Mac Hermes runs `/onboard`→`/scope`→`/prd`→`/spec`, or authored to match design if skills not installed yet, **must exist before Final Submit**)
 
 **Interfaces:**
 - Produces: public empty-origin repo URL; planning docs judges require
@@ -125,7 +125,7 @@ create table goals (
 
 ---
 
-### Task 2: Ledger math (pure Dart) — overshoot + balances
+### Task 2: Ledger math (pure Dart), overshoot + balances
 
 **Files:**
 - Create: `app/lib/services/ledger_math.dart`
@@ -152,7 +152,7 @@ test('under target all to goal when split 100%', () {
 
 Also test `sumLedger` for goal vs pocket totals; progress capped at 1.0.
 
-- [ ] **Step 2:** Run `flutter test test/ledger_math_test.dart` — expect FAIL
+- [ ] **Step 2:** Run `flutter test test/ledger_math_test.dart`, expect FAIL
 
 - [ ] **Step 3:** Implement `ledger_math.dart`
 
@@ -259,7 +259,7 @@ Also test `sumLedger` for goal vs pocket totals; progress capped at 1.0.
 - Modify: `README.md`, create `docs/demo-video-script.md`
 
 **Interfaces:**
-- Produces: 1–3 min shot list matching Basics requirements
+- Produces: 1-3 min shot list matching Basics requirements
 
 - [ ] **Step 1:** Script beats: role switch → New Goal → Suggest plan (show why) → Accept → Kid Today → mark done with photo → Parent approve → progress + overflow if cued → Album add/delete.
 

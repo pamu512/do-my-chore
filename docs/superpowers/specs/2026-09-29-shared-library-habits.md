@@ -1,4 +1,4 @@
-# Do My Chore — Shared library habits across goals
+# Do My Chore: Shared library habits across goals
 
 **Date:** 2026-09-29 HKT  
 **Status:** Locked for implement (Anoop locked this date)  
@@ -7,14 +7,14 @@
 
 ## 1. Problem
 
-A family can have two or more **active** goals at once (Ice cream at 100% once, Disneyland at 5% daily). The same real habit — make the bed — is suggested independently on each goal. Kid Today then lists the habit twice. Two photos, two Send to parent, two approvals. The kid did one thing.
+A family can have two or more **active** goals at once (Ice cream at 100% once, Disneyland at 5% daily). The same real habit, make the bed, is suggested independently on each goal. Kid Today then lists the habit twice. Two photos, two Send to parent, two approvals. The kid did one thing.
 
 ## 2. Locked product rules
 
 1. Age-based **chore library** entries have **stable catalog IDs**. AI Suggest plan MUST pick from that library. The same habit always uses the same id (`make-your-bed` is `make-your-bed` on every goal, every age band that includes it).
 2. When two or more **active** goals for the family include the same `library_chore_id`, Kid Today shows **one** row. One check-in, one photo, one Send to parent.
 3. On approve (and reject / send-back), apply to **all** active chore rows that share that library id. Each goal keeps its own `weight_pct` and cadence math. Ice cream 100% once vs Disneyland 5% daily is intentional.
-4. **Custom** chores (parent-entered, no library id — makeup, later free-text) are **goal-private**: never merge, never appear on other goals’ Today as shared.
+4. **Custom** chores (parent-entered, no library id: makeup, later free-text) are **goal-private**: never merge, never appear on other goals’ Today as shared.
 5. **No fuzzy title matching.** Sharing is library-id only. Two custom chores titled "Make your bed" stay two rows.
 6. Kid UI remains **% only**. No dollars on kid screens.
 
@@ -69,7 +69,7 @@ Collapsed row:
 - Title from the library / first member.
 - `requires_photo` if **any** member needs a photo.
 - Row kind (open / next try / sent) is the most actionable member: open > next try > sent.
-- Meta: cadence + “counts for N goals” when N > 1. Still % only — do not invent a single combined weight.
+- Meta: cadence + “counts for N goals” when N > 1. Still % only, do not invent a single combined weight.
 - `sharedChoreIds` lists every active matching chore id.
 
 Day-done / pace math expands the cluster so each goal’s `weight_pct` and cadence still count.

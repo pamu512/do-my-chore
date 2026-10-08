@@ -1,4 +1,4 @@
-# Do My Chore — Demo Video Script (1-3 min)
+# Do My Chore: Demo Video Script (1 to 3 min)
 
 Target: [Build With AI: Basics](https://learn-ai-basics.devpost.com/) submission video.
 Record on the iOS simulator, one take per beat, parent-led. All shots use the
