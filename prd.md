@@ -1,4 +1,4 @@
-# Do My Chore — PRD
+# Do My Chore: PRD
 
 > Hackathon: Build With AI: Basics · Rev 3 money model is authoritative: [`docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md`](docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md)
 

@@ -1,8 +1,8 @@
-# Do My Chore — Money & habit model (rev 3)
+# Do My Chore: Money & habit model (rev 3)
 
 **Date:** 2026-09-27  
 **Status:** Locked for implement (Anoop approved direction; makeup toggle added 2026-09-27)  
-**Hackathon:** Build With AI: Basics — still a submission artifact, not a portfolio bet  
+**Hackathon:** Build With AI: Basics, still a submission artifact, not a portfolio bet  
 **Replaces:** dollar-reward / 80-20 pocket framing for *progress* (rev 2)
 
 ## 1. Intent (locked)
@@ -18,7 +18,7 @@ Kid UI shows **% complete** only. Parent UI shows **money + %** (and realism che
 
 | Mode | Example | Parent planner focus |
 | --- | --- | --- |
-| `family_trip` | Disneyland (~USD 2.5k–5k; lower if local / no hotel) | Total trip cost, who goes, weekly/monthly parent save |
+| `family_trip` | Disneyland (~USD 2.5k-5k; lower if local / no hotel) | Total trip cost, who goes, weekly/monthly parent save |
 | `kid_item` | Skateboard (~USD 200 high end) | Item cost, parent save until kid hits 100% |
 
 Both modes: kid still must reach **100% chore progress** to “earn” the goal. Money is what the parent must actually fund offline.
@@ -59,12 +59,12 @@ Kid progress bar = `min(100, sum of approved instance credits)`.
 
 No dollar amounts on kid screens.
 
-### 3.1 Makeup chores (parent choice — small push)
+### 3.1 Makeup chores (parent choice, small push)
 
 - Goal flag: `allow_makeup` boolean, **default false**.
 - When **off**: kid can only work the original plan (+ oversubscribe slack if parent set weights > 100%). No catch-up chores.
 - When **on** and kid is **behind pace** (projected finish % at `target_date` < 100% given current progress vs elapsed expected instances):
-  - Parent home shows a soft card: “Behind pace — add a makeup chore?”
+  - Parent home shows a soft card: “Behind pace, add a makeup chore?”
   - Parent can add one or more `once` chores with `is_makeup = true` and a `weight_pct` that covers (part of) the gap.
   - Kid then sees those makeup chores on Today like any other chore; credit math is the same (`once` → full weight on one approval).
 - Makeup is **never automatic**. Parent must opt in on the goal and explicitly add (or accept a suggested) makeup chore. That is the small push: option exists, not a bailout by default.
@@ -123,7 +123,7 @@ COPPA out of POC; no real payments; Final Submit only with Anoop; no calendar-da
 - Soft realism thresholds for save warnings
 - Whether parent “extra credit” overflow UI is shown beyond a single line
 
-## 10. Stretch goals (hackathon — after MVP)
+## 10. Stretch goals (hackathon, after MVP)
 
 Not required for demo video or Final Submit. Build only if MVP %/planner/makeup is green.
 
@@ -139,13 +139,13 @@ Not required for demo video or Final Submit. Build only if MVP %/planner/makeup 
 
 - Kid A requests swap of their open chore instance with Kid B’s (same family).
 - Parent confirms (default for stretch) or auto-accept if parent setting allows.
-- Swap exchanges assignment for that instance / chore row; weights stay with the chore definition (or follow the chore id — implement as chore_id ownership swap so weight math unchanged).
+- Swap exchanges assignment for that instance / chore row; weights stay with the chore definition (or follow the chore id, implement as chore_id ownership swap so weight math unchanged).
 - Rejected swap: both kids keep original chores; nudge optional.
 
 ### 10.3 Bonus chores (kid-proposed, anti-game weights)
 
 - Kid can **propose** a bonus chore (title + optional photo requirement + suggested cadence `once` default).
 - Parent **accepts or rejects**. Parent does **not** type the weight.
-- On accept, app **randomizes `weight_pct`** in a parent-visible band (POC suggest: uniform 3–12%, or discrete slots {3,5,8,10,12}) and stores it; show the roll to parent (“Weight landed at 8%”) so kids cannot lobby for a fat %.
+- On accept, app **randomizes `weight_pct`** in a parent-visible band (POC suggest: uniform 3-12%, or discrete slots {3,5,8,10,12}) and stores it; show the roll to parent (“Weight landed at 8%”) so kids cannot lobby for a fat %.
 - Bonus chores are `is_bonus = true` (distinct from `is_makeup`). They add to the kid’s weight pool (can oversubscribe).
 - Rejected proposals: kid sees nudge; can repropose a different title later.

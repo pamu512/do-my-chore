@@ -1,5 +1,5 @@
 /// Age-keyed chore catalog with stable ids. Suggest plan picks from here.
-/// Sharing on Kid Today / approvals is library-id only — never title match.
+/// Sharing on Kid Today / approvals is library-id only, never title match.
 library;
 
 import 'chore_progress_math.dart';

@@ -54,7 +54,7 @@ flutter run \
 | `parent@demo` | `demo1234` |
 | `kid@demo` | `demo1234` |
 
-These are **demo-only credentials for a local instance** — never reuse them anywhere real. The seeded family has one goal ("Disneyland") and a mix of chores with and without photo requirements.
+These are **demo-only credentials for a local instance**. Never reuse them anywhere real. The seeded family has one goal ("Disneyland") and a mix of chores with and without photo requirements.
 
 ## Honesty notices
 
@@ -67,7 +67,7 @@ These are **demo-only credentials for a local instance** — never reuse them an
 - [`scope.md`](scope.md) · [`prd.md`](prd.md) · [`spec.md`](spec.md) - planning docs (rev 3)
 - [`docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md`](docs/superpowers/specs/2026-09-27-do-my-chore-money-model-rev3.md) - money model rev 3 (locked)
 - [`docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md`](docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md) - V3 encouragement layer (locked)
-- [`docs/demo-video-script.md`](docs/demo-video-script.md) - 1–3 min demo shot list
+- [`docs/demo-video-script.md`](docs/demo-video-script.md) - 1 to 3 min demo shot list
 - [`docs/devpost-draft.md`](docs/devpost-draft.md) - submission draft
 
 ## Layout
@@ -80,4 +80,4 @@ docs/         design spec, implementation plan, demo script
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

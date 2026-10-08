@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Crop launcher icons from Anoop's official Do My Chore JPEG.
 
-Does not redraw or re-encode app/assets/branding/do_my_chore_logo.jpg —
-that file is the official pixels (copy the upload over it).
+Does not redraw or re-encode app/assets/branding/do_my_chore_logo.jpg.
+That file is the official pixels (copy the upload over it).
 
 AppIcon: square crop of the left capsule (rounded end + mustard + dots).
-The full pill+wordmark lockup is a hairline at 20–60pt; splash / LaunchImage
+The full pill+wordmark lockup is a hairline at 20-60pt; splash / LaunchImage
 keep the full square JPEG.
 
 Usage (from repo root):
@@ -38,7 +38,7 @@ def content_mask(im: Image.Image, bg: tuple[int, int, int], tol: int = 22) -> Im
 
 
 def mustard_row_span(im: Image.Image) -> tuple[int, int]:
-    """Rows that contain mustard fill — the capsule, never the wordmark."""
+    """Rows that contain mustard fill: the capsule, never the wordmark."""
     rgb = im.convert("RGB")
     px = rgb.load()
     w, h = rgb.size
@@ -65,7 +65,7 @@ def capsule_left(im: Image.Image, y0: int, y1: int, cream: tuple[int, int, int])
 def square_left_capsule(full: Image.Image, cream: tuple[int, int, int]) -> Image.Image:
     y0, y1 = mustard_row_span(full)
     x0 = capsule_left(full, y0, y1, cream)
-    # Mustard-only strip — wordmark sits below this band.
+    # Mustard-only strip. Wordmark sits below this band.
     strip = full.convert("RGB").crop((0, y0, full.width, y1 + 1))
     cap_h = y1 - y0 + 1
     side = int(cap_h * 2.15)

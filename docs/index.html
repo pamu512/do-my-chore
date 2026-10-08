@@ -17,7 +17,7 @@
 :root{
   --paper:#F5EADF;         /* logo paper field */
   --bg:#FBFAF8; --surface:#FFFFFF; --ink:#1F2621; --ink2:#4A544D;
-  --muted:#5D675F; --faint:#7A837C;
+  --muted:#5D675F; --faint:#5E665F;
   --pine:#1E4D3B; --pine-deep:#143528; --pine-soft:#EDF2EF;
   --marigold:#D98E2B; --marigold-deep:#8F5A12; --marigold-soft:#F9EEDD;
   --clay:#B45540; --clay-soft:#F7E9E5;
@@ -36,19 +36,24 @@ a{color:var(--pine)}
 
 /* ---------- top nav ---------- */
 header{position:sticky;top:0;z-index:20;background:rgba(251,250,248,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+.nav{display:flex;align-items:center;justify-content:space-between;min-height:64px;height:auto;flex-wrap:wrap}
 .nav .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
 .nav .brand img{width:34px;height:34px;border-radius:8px}
 .nav .brand span{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:18px;letter-spacing:-.02em}
-.nav .links{display:flex;gap:22px;align-items:center}
-.nav .links a{font-size:14px;font-weight:600;color:var(--ink2);text-decoration:none}
+.nav .links{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.nav .links a{font-size:14px;font-weight:600;color:var(--ink2);text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
 .nav .links a:hover{color:var(--pine)}
-.nav .cta{background:var(--pine);color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px;padding:9px 16px}
+.nav .cta{background:var(--pine);color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px;padding:9px 16px;min-height:44px;display:inline-flex;align-items:center}
 .nav .cta:hover{background:var(--pine-deep)}
-@media(max-width:760px){.nav .links a:not(.cta){display:none}}
+@media(max-width:760px){
+  .nav{height:auto;flex-wrap:wrap;row-gap:0;padding:6px 0}
+  .nav .links{flex-wrap:wrap;gap:0 16px}
+}
 
 /* ---------- hero ---------- */
 .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center;padding:72px 0 84px}
+.hero > *{min-width:0}
+@media(max-width:860px){.hero{grid-template-columns:1fr;gap:28px;padding:40px 0 48px}}
 .hero .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--marigold-soft);border:1px solid #EBD9BC;color:var(--marigold-deep);font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;border-radius:999px;padding:6px 13px;margin-bottom:20px}
 .hero h1{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:clamp(38px,5.2vw,58px);line-height:1.06;letter-spacing:-.025em}
 .hero h1 em{font-style:normal;color:var(--pine)}
@@ -62,7 +67,7 @@ header{position:sticky;top:0;z-index:20;background:rgba(251,250,248,.92);backdro
 .hero .proof{margin-top:26px;font-size:13px;color:var(--faint)}
 /* phone mock */
 .phone-wrap{display:flex;justify-content:center}
-.phone{width:300px;background:var(--bg);border:1px solid var(--line);border-radius:34px;overflow:hidden;box-shadow:0 24px 60px -30px rgba(31,38,33,.35)}
+.phone{width:min(300px,100%);background:var(--bg);border:1px solid var(--line);border-radius:34px;overflow:hidden;box-shadow:0 24px 60px -30px rgba(31,38,33,.35)}
 .phone .p-top{padding:12px 14px 0}
 .phone .p-brand{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:13px}
 .phone .p-honesty{font-size:9.5px;color:var(--faint);padding:1px 0 6px}
@@ -156,7 +161,7 @@ section{padding:84px 0}
 .pola:nth-child(3){transform:rotate(-.6deg)}
 .pola img{border-radius:2px;aspect-ratio:1;object-fit:cover;width:100%}
 .pola .cap{display:flex;justify-content:space-between;align-items:center;padding:7px 2px 0;font-size:12px;font-weight:600;color:#1F2621}
-.pola .del{color:#9AA39B}
+.pola .del{color:var(--faint)}
 @media(max-width:760px){.album-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.album-grid{grid-template-columns:1fr}}
 
@@ -172,9 +177,10 @@ section{padding:84px 0}
 /* stack + run */
 .stack-band{background:var(--cream);border-block:1px solid var(--line)}
 .stack-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.stack-grid > *{min-width:0}
 .runbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px}
 .runbox h3{font-size:16px;font-weight:700;margin-bottom:12px}
-.runbox code{display:block;background:var(--pine-deep);color:#E8F2EC;border-radius:10px;padding:14px 16px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;line-height:1.7;overflow-x:auto;white-space:pre}
+.runbox code{display:block;background:var(--pine-deep);color:#E8F2EC;border-radius:10px;padding:14px 16px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;line-height:1.7;overflow-x:auto;max-width:100%;white-space:pre}
 .runbox .cmt{color:#8FA89B}
 .tech-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .tech{font-size:12.5px;font-weight:600;color:var(--ink2);background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:6px 13px}
@@ -233,7 +239,7 @@ footer{padding:44px 0 60px}
   </div>
 
   <div class="phone-wrap">
-    <div class="phone" role="img" aria-label="Kid Today screen with the Disneyland goal at 23 percent and chores">
+    <div class="phone" role="img" aria-label="Kid Today screen for the Disneyland goal, with chores and one check-in">
       <div class="p-top">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span class="p-brand">Do My Chore</span>
@@ -251,12 +257,12 @@ footer{padding:44px 0 60px}
           </div>
           <div class="p-pad">
             <div class="rail">
-              <div class="track"></div><div class="fill" style="width:23%"></div>
-              <div class="dot" style="left:20%"></div><div class="dot on" style="left:20%"></div>
+              <div class="track"></div><div class="fill" style="width:0.4%"></div>
+              <div class="dot" style="left:20%"></div>
               <div class="castle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V9l3-3 3 3v3h4V9l3-3 3 3v13z"/><path d="M9 22v-4h6v4"/></svg></div>
             </div>
             <div class="railcaps"><span>0%</span><span>100%</span></div>
-            <div style="margin-top:8px"><span class="pct">23% <small>of the way there</small></span></div>
+            <div style="margin-top:8px"><span class="pct">0.4% <small>of the way there</small></span></div>
             <p style="font-size:10.5px;color:var(--muted);margin-top:3px">Every check-in moves the bar.</p>
           </div>
         </div>
@@ -439,7 +445,7 @@ flutter run \
           <span class="tech">Supabase Storage</span><span class="tech">Edge Functions (Deno)</span>
           <span class="tech">OpenAI (optional)</span><span class="tech">Python scripts</span>
         </div>
-        <p style="margin-top:16px;font-size:14px;color:var(--muted)">Seeded demo family: <b>parent@demo / kid@demo</b>. Seeded weights 40 / 30 / 20 / 10 add up to 100%. 114 tests keep the money math honest.</p>
+        <p style="margin-top:16px;font-size:14px;color:var(--muted)">Seeded demo family: <b>parent@demo / kid@demo</b>. Seeded weights 40 / 30 / 20 / 10 add up to 100%. Tests keep the money math honest.</p>
       </div>
     </div>
   </div>

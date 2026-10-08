@@ -1,7 +1,7 @@
 -- Atomic parent top-up: applies the overshoot rule to top-ups too (design
 -- rev 2: "credit only enough to reach the target ... in the same
 -- approval/top-up transaction"). Goal part lands as parent_topup (capped at
--- target), remainder overflows to pocket_credit — one transaction.
+-- target), remainder overflows to pocket_credit, in one transaction.
 
 create or replace function public.add_parent_topup(p_goal_id uuid, p_amount numeric)
 returns void

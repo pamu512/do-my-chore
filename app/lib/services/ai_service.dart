@@ -10,7 +10,7 @@ library;
 import 'chore_library.dart';
 import 'chore_progress_math.dart';
 
-/// Chore titles that can legitimately require photo proof — things a parent
+/// Chore titles that can legitimately require photo proof: things a parent
 /// can verify by looking. Anything time- or trust-based must never demand a
 /// photo ("read a chapter" is an honor-system chore).
 const Set<String> kVisuallyVerifiable = {
@@ -156,7 +156,7 @@ const List<ChoreSpec> _littleKidChores = [
 
 /// Deterministic habit plan: worked-example weights summing to exactly 100,
 /// plus the parent's weekly save for the real cost. No API key, no randomness
-/// — same inputs always give the same plan.
+/// and the same inputs always give the same plan.
 AiPlanSuggestion buildDeterministicPlan({
   required String title,
   required double targetAmount,

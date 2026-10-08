@@ -1,4 +1,4 @@
-# Devpost Draft — Build With AI: Basics
+# Devpost Draft: Build With AI: Basics
 
 > DRAFT ONLY. **Do not Final Submit without Anoop.** Deadline ~2026-10-27 05:00 HKT.
 

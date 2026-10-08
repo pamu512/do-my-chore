@@ -39,7 +39,7 @@ String? validatePlan(AiPlanSuggestion plan) {
 }
 
 /// Creates goals, stores suggestions, and (on accept) writes the chore rows.
-/// All calls run under the caller's client — parent JWT by RLS contract.
+/// All calls run under the caller's client (parent JWT by RLS contract).
 class GoalService {
   GoalService(this._clients);
 
