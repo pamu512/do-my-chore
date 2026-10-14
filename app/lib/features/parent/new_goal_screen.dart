@@ -7,6 +7,10 @@ import '../../services/goal_service.dart';
 /// Parent creates a goal (type, cost, date, makeup switch), gets an
 /// AI-suggested plan (parent weekly save + kid habit weights with a plain
 /// language why), edits it, and accepts - which writes the chores.
+///
+/// Target date is picked with the native calendar (tomorrow to +5 years),
+/// not free-typed. The picked calendar day flows into suggest, create, and
+/// weeksUntil as UTC midnight, matching `DateTime.tryParse('yyyy-MM-dd')`.
 class NewGoalScreen extends StatefulWidget {
   const NewGoalScreen({super.key, required this.goalService});
 
@@ -16,11 +20,16 @@ class NewGoalScreen extends StatefulWidget {
   State<NewGoalScreen> createState() => _NewGoalScreenState();
 }
 
+/// Calendar day as UTC midnight, matching `DateTime.tryParse('yyyy-MM-dd')`.
+DateTime _utcCalendarDay(DateTime day) =>
+    DateTime.utc(day.year, day.month, day.day);
+
 class _NewGoalScreenState extends State<NewGoalScreen> {
   final _title = TextEditingController();
   final _amount = TextEditingController(text: '3500');
-  final _date = TextEditingController(
-      text: DateTime.now().add(const Duration(days: 98)).toIso8601String().substring(0, 10));
+
+  /// Calendar day as UTC midnight, matching `DateTime.tryParse('yyyy-MM-dd')`.
+  DateTime _targetDate = _utcCalendarDay(DateTime.now().add(const Duration(days: 98)));
   final _age = TextEditingController(text: '9');
   String _mode = 'family_trip';
   bool _allowMakeup = false;
@@ -33,7 +42,6 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
   void dispose() {
     _title.dispose();
     _amount.dispose();
-    _date.dispose();
     _age.dispose();
     super.dispose();
   }
@@ -49,7 +57,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
       final plan = buildDeterministicPlan(
         title: _title.text.isEmpty ? 'Disneyland' : _title.text,
         targetAmount: double.tryParse(_amount.text) ?? 3500,
-        weeks: weeksUntil(DateTime.parse(_date.text)),
+        weeks: weeksUntil(_targetDate),
         kidAge: int.tryParse(_age.text) ?? 8,
       );
       setState(() => _plan = plan);
@@ -68,7 +76,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
         title: _title.text.isEmpty ? 'Disneyland' : _title.text,
         cost: double.tryParse(_amount.text) ?? 3500,
         goalMode: _mode,
-        targetDate: DateTime.tryParse(_date.text),
+        targetDate: _targetDate,
         allowMakeup: _allowMakeup,
       );
       await widget.goalService.acceptPlan(goalId: goalId, plan: plan);
@@ -76,6 +84,59 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
     } catch (e) {
       setState(() => _error = '$e');
     }
+  }
+
+  String _shownDate(BuildContext context) {
+    return MaterialLocalizations.of(context).formatMediumDate(
+      DateTime(_targetDate.year, _targetDate.month, _targetDate.day),
+    );
+  }
+
+  Future<void> _pickTargetDate() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final firstDate = today.add(const Duration(days: 1));
+    final lastDate = DateTime(today.year + 5, today.month, today.day);
+    var initial = DateTime(_targetDate.year, _targetDate.month, _targetDate.day);
+    if (initial.isBefore(firstDate)) initial = firstDate;
+    if (initial.isAfter(lastDate)) initial = lastDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: 'Target date',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _targetDate = DateTime.utc(picked.year, picked.month, picked.day);
+    });
+  }
+
+  Widget _targetDateField(BuildContext context) {
+    final shown = _shownDate(context);
+    return Semantics(
+      key: const Key('target-date-field'),
+      button: true,
+      container: true,
+      label: 'Target date',
+      value: shown,
+      child: ExcludeSemantics(
+        child: InkWell(
+          onTap: _pickTargetDate,
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'Target date',
+              prefixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+            ),
+            child: Text(
+              shown,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -118,14 +179,7 @@ class _NewGoalScreenState extends State<NewGoalScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _date,
-                decoration: const InputDecoration(
-                    labelText: 'Target date',
-                    prefixIcon: Icon(Icons.calendar_today_outlined, size: 18)),
-              ),
-            ),
+            Expanded(child: _targetDateField(context)),
           ]),
           const SizedBox(height: 4),
           SwitchListTile(
