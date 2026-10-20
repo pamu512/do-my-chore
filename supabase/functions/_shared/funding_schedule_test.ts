@@ -6,8 +6,11 @@ import {
   periodsLeft,
   planCapture,
   planDecline,
+  planWithdraw,
   recomputeSchedule,
+  ScheduleError,
   splitShortfallCents,
+  withdrawnCents,
   type Milestone,
   type Transfer,
   type Wallet,
@@ -257,6 +260,288 @@ Deno.test("funding schedule does not use requiredWeeklySave", async () => {
   assertEquals(src.includes("requiredWeeklySave"), false);
 });
 
+Deno.test("withdraw strictly drops the kid percent and resplits to the new shortfall", () => {
+  const w = wallet();
+  const milestones: Milestone[] = [
+    { id: "cap", dueDate: "2026-10-12", proposedAmount: "4.00", status: "captured" },
+    { id: "mid", dueDate: "2026-10-19", proposedAmount: "2.00", status: "proposed" },
+    { id: "later", dueDate: "2026-11-02", proposedAmount: "4.00", status: "proposed" },
+  ];
+  const transfers: Transfer[] = [
+    { id: "t-cap", milestoneId: "cap", orderId: "ORDER1", captureId: "CAP1", amount: "4.00", status: "captured" },
+  ];
+  const before = goalFundingPercent(w.goalAmount, transfers);
+  const transferSnapshot = JSON.stringify(transfers);
+  const capturedSnapshot = JSON.stringify(milestones[0]);
+  const result = planWithdraw({
+    wallet: w,
+    milestones,
+    transfers,
+    withdrawals: [],
+    amount: "1.00",
+    note: "field trip",
+    asOf: "2026-10-17",
+  });
+  assertEquals(JSON.stringify(transfers), transferSnapshot);
+  assertEquals(JSON.stringify(milestones[0]), capturedSnapshot);
+  assertEquals(result.fundingPercent < before, true);
+  assertEquals(result.fundingPercent, 0.3);
+  assertEquals(result.amount, "1.00");
+  assertEquals(result.withdrawnCents, 100);
+  assertEquals(result.walletStatus, "active");
+  assertEquals(result.milestones.find((m) => m.id === "cap"), milestones[0]);
+  assertEquals(
+    result.milestones.filter((m) => m.status === "proposed").map((m) => m.proposedAmount),
+    ["2.33", "2.33", "2.34"],
+  );
+  assertEquals(
+    result.milestones.filter((m) => m.status === "proposed").reduce((s, m) => s + dollarsToCents(m.proposedAmount), 0),
+    dollarsToCents(w.goalAmount) - (capturedCents(transfers) - 100),
+  );
+  assertEquals(result.milestones.some((m) => m.dueDate > w.goalDate), false);
+  const withdrawal = result.writes.find((x) => x.kind === "insert_withdrawal");
+  assertEquals(withdrawal, { kind: "insert_withdrawal", walletId: w.id, amount: "1.00", note: "field trip" });
+  assertEquals(result.writes.some((x) =>
+    x.kind === "capture_transfer" || x.kind === "insert_transfer" ||
+    x.kind === "insert_parent_save" || x.kind === "update_milestone"
+  ), false);
+});
+
+Deno.test("withdraw respects a pinned open order and never schedules below zero", () => {
+  const w = wallet();
+  const milestones: Milestone[] = [
+    { id: "cap", dueDate: "2026-10-12", proposedAmount: "4.00", status: "captured" },
+    { id: "pin", dueDate: "2026-10-19", proposedAmount: "4.00", status: "approved" },
+    { id: "old", dueDate: "2026-10-26", proposedAmount: "6.00", status: "proposed" },
+  ];
+  const transfers: Transfer[] = [
+    { id: "t-cap", milestoneId: "cap", orderId: "ORDER1", captureId: "CAP1", amount: "4.00", status: "captured" },
+    { id: "t-open", milestoneId: "pin", orderId: "ORDEROPEN", captureId: null, amount: "0.00", status: "created" },
+  ];
+  const result = planWithdraw({
+    wallet: w,
+    milestones,
+    transfers,
+    withdrawals: [],
+    amount: "1.00",
+    note: "",
+    asOf: "2026-10-17",
+  });
+  const pin = result.milestones.find((m) => m.id === "pin");
+  assertEquals(pin?.proposedAmount, "4.00");
+  assertEquals(pin?.status, "approved");
+  const fresh = result.milestones.filter((m) => m.status === "proposed");
+  assertEquals(fresh.map((m) => [m.dueDate, m.proposedAmount]), [
+    ["2026-10-26", "1.50"],
+    ["2026-11-02", "1.50"],
+  ]);
+  const reserved = 400;
+  assertEquals(
+    fresh.reduce((s, m) => s + dollarsToCents(m.proposedAmount), 0) + reserved,
+    dollarsToCents(w.goalAmount) - (capturedCents(transfers) - 100),
+  );
+});
+
+Deno.test("an over-withdraw is rejected with 409 and no writes", () => {
+  const base = {
+    wallet: wallet(),
+    milestones: [{ id: "cap", dueDate: "2026-10-12", proposedAmount: "4.00", status: "captured" } as Milestone],
+    transfers: [{
+      id: "t-cap",
+      milestoneId: "cap",
+      orderId: "ORDER1",
+      captureId: "CAP1",
+      amount: "4.00",
+      status: "captured",
+    } as Transfer],
+    note: "",
+    asOf: "2026-10-17",
+  };
+  const overCaptured = assertThrows(() =>
+    planWithdraw({ ...base, withdrawals: [], amount: "4.01" }), ScheduleError
+  );
+  assertEquals(overCaptured.status, 409);
+  const overRemaining = assertThrows(() =>
+    planWithdraw({ ...base, withdrawals: [{ amount: "1.00" }], amount: "3.01" }), ScheduleError
+  );
+  assertEquals(overRemaining.status, 409);
+  const zero = assertThrows(() => planWithdraw({ ...base, withdrawals: [], amount: "0.00" }), ScheduleError);
+  assertEquals(zero.status, 409);
+  const negative = assertThrows(() => planWithdraw({ ...base, withdrawals: [], amount: "-1.00" }), ScheduleError);
+  assertEquals(negative.status, 400);
+});
+
+Deno.test("a withdraw with no periods left marks the wallet short", () => {
+  const transfers: Transfer[] = [
+    { id: "t-cap", milestoneId: "cap", orderId: "O", captureId: "C", amount: "4.00", status: "captured" },
+  ];
+  const milestones: Milestone[] = [
+    { id: "cap", dueDate: "2026-10-12", proposedAmount: "4.00", status: "captured" },
+  ];
+  const transferSnapshot = JSON.stringify(transfers);
+  const milestoneSnapshot = JSON.stringify(milestones);
+  assertEquals(periodsLeft("2026-10-21", "2026-10-22"), []);
+  const before = goalFundingPercent("4.00", transfers);
+  const result = planWithdraw({
+    wallet: wallet({ goalAmount: "4.00", goalDate: "2026-10-21" }),
+    milestones,
+    transfers,
+    withdrawals: [],
+    amount: "1.00",
+    note: "",
+    asOf: "2026-10-22",
+  });
+  assertEquals(JSON.stringify(transfers), transferSnapshot);
+  assertEquals(JSON.stringify(milestones), milestoneSnapshot);
+  assertEquals(result.walletStatus, "short");
+  assertEquals(result.fundingPercent < before, true);
+  assertEquals(result.fundingPercent, 0.75);
+  assertEquals(result.milestones.some((m) => m.status === "proposed"), false);
+  assertEquals(result.writes.some((w) =>
+    w.kind === "capture_transfer" || w.kind === "insert_transfer" || w.kind === "update_milestone"
+  ), false);
+});
+
+Deno.test("a funded wallet returns to active after a withdraw", () => {
+  const w = wallet({ goalAmount: "4.00" });
+  const transfers: Transfer[] = [
+    { id: "t-cap", milestoneId: "cap", orderId: "O", captureId: "C", amount: "4.00", status: "captured" },
+  ];
+  const result = planWithdraw({
+    wallet: w,
+    milestones: [{ id: "cap", dueDate: "2026-10-12", proposedAmount: "4.00", status: "captured" }],
+    transfers,
+    withdrawals: [],
+    amount: "1.00",
+    note: "",
+    asOf: "2026-10-17",
+  });
+  assertEquals(result.walletStatus, "active");
+  assertEquals(result.fundingPercent, 0.75);
+  assertEquals(
+    result.milestones.filter((m) => m.status === "proposed").map((m) => m.proposedAmount),
+    ["0.33", "0.33", "0.34"],
+  );
+});
+
+Deno.test("a decline after a withdraw resplits against effective captured", () => {
+  const w = wallet();
+  const result = planDecline({
+    wallet: w,
+    milestones: [
+      { id: "cap", dueDate: "2026-10-12", proposedAmount: "4.00", status: "captured" },
+      { id: "dec", dueDate: "2026-10-19", proposedAmount: "2.00", status: "proposed" },
+    ],
+    transfers: [
+      { id: "t-cap", milestoneId: "cap", orderId: "O", captureId: "C", amount: "4.00", status: "captured" },
+    ],
+    withdrawals: [{ amount: "1.00" }],
+    milestoneId: "dec",
+    decision: "declined",
+    asOf: "2026-10-17",
+  });
+  assertEquals(result.fundingPercent, 0.3);
+  assertEquals(
+    result.milestones.filter((m) => m.status === "proposed").map((m) => m.proposedAmount),
+    ["3.50", "3.50"],
+  );
+});
+
+Deno.test("withdraw ceiling is the sum of captured rows and those rows stay byte-identical", () => {
+  const w = wallet();
+  const milestones: Milestone[] = [
+    { id: "c1", dueDate: "2026-10-05", proposedAmount: "1.50", status: "captured" },
+    { id: "c2", dueDate: "2026-10-12", proposedAmount: "2.50", status: "captured" },
+  ];
+  const transfers: Transfer[] = [
+    { id: "t1", milestoneId: "c1", orderId: "O1", captureId: "C1", amount: "1.50", status: "captured" },
+    { id: "t2", milestoneId: "c2", orderId: "O2", captureId: "C2", amount: "2.50", status: "captured" },
+    { id: "t3", milestoneId: "ghost", orderId: null, captureId: null, amount: "9.00", status: "declined" },
+  ];
+  const transferSnapshot = JSON.stringify(transfers);
+  const milestoneSnapshot = JSON.stringify(milestones);
+  const before = goalFundingPercent(w.goalAmount, transfers);
+  assertEquals(before, 0.4);
+  const over = assertThrows(() =>
+    planWithdraw({
+      wallet: w,
+      milestones,
+      transfers,
+      withdrawals: [],
+      amount: "4.01",
+      note: "",
+      asOf: "2026-10-17",
+    }), ScheduleError);
+  assertEquals(over.status, 409);
+  assertEquals(JSON.stringify(transfers), transferSnapshot);
+  assertEquals(JSON.stringify(milestones), milestoneSnapshot);
+  const result = planWithdraw({
+    wallet: w,
+    milestones,
+    transfers,
+    withdrawals: [],
+    amount: "4.00",
+    note: "",
+    asOf: "2026-10-17",
+  });
+  assertEquals(JSON.stringify(transfers), transferSnapshot);
+  assertEquals(JSON.stringify(milestones), milestoneSnapshot);
+  assertEquals(result.fundingPercent < before, true);
+  assertEquals(result.fundingPercent, 0);
+  assertEquals(result.amount, "4.00");
+  const proposed = result.milestones.filter((m) => m.status === "proposed");
+  assertEquals(proposed.map((m) => m.proposedAmount), ["3.33", "3.33", "3.34"]);
+  assertEquals(
+    proposed.reduce((sum, m) => sum + dollarsToCents(m.proposedAmount), 0),
+    dollarsToCents(w.goalAmount),
+  );
+  assertEquals(result.writes.some((w) =>
+    w.kind === "capture_transfer" || w.kind === "insert_transfer" ||
+    w.kind === "insert_parent_save" || w.kind === "update_milestone"
+  ), false);
+  assertEquals(JSON.stringify(result.writes).includes("C1"), false);
+  assertEquals(JSON.stringify(result.writes).includes("C2"), false);
+});
+
+Deno.test("a pinned order larger than the new shortfall schedules nothing", () => {
+  const w = wallet({ goalAmount: "4.00" });
+  const milestones: Milestone[] = [
+    { id: "cap", dueDate: "2026-10-12", proposedAmount: "4.00", status: "captured" },
+    { id: "pin", dueDate: "2026-10-19", proposedAmount: "3.00", status: "approved" },
+  ];
+  const transfers: Transfer[] = [
+    { id: "t-cap", milestoneId: "cap", orderId: "O1", captureId: "C1", amount: "4.00", status: "captured" },
+    { id: "t-open", milestoneId: "pin", orderId: "OPEN", captureId: null, amount: "0.00", status: "created" },
+  ];
+  const transferSnapshot = JSON.stringify(transfers);
+  const result = planWithdraw({
+    wallet: w,
+    milestones,
+    transfers,
+    withdrawals: [],
+    amount: "2.00",
+    note: "",
+    asOf: "2026-10-17",
+  });
+  assertEquals(JSON.stringify(transfers), transferSnapshot);
+  const pin = result.milestones.find((m) => m.id === "pin");
+  assertEquals(pin?.proposedAmount, "3.00");
+  assertEquals(pin?.status, "approved");
+  const proposed = result.milestones.filter((m) => m.status === "proposed");
+  assertEquals(proposed, []);
+  assertEquals(result.walletStatus, "active");
+  assertEquals(result.fundingPercent, 0.5);
+  assertEquals(result.writes.some((w) => w.kind === "insert_milestones"), false);
+});
+
+Deno.test("withdrawn cents sum rows and the percent clamps at zero", () => {
+  assertEquals(withdrawnCents([{ amount: "1.50" }, { amount: "0.25" }]), 175);
+  assertEquals(
+    goalFundingPercent("10.00", [{ amount: "10.00", status: "captured" }], 1200),
+    0,
+  );
+});
+
 Deno.test("goal wallet migration has parent-only policies and no balance column", async () => {
   const sql = await Deno.readTextFile(
     new URL("../../migrations/20261017000000_goal_wallet.sql", import.meta.url),
@@ -281,5 +566,28 @@ Deno.test("goal wallet migration has parent-only policies and no balance column"
   for (const policy of policies) {
     assertEquals(policy.includes("is_parent()"), true);
     assertEquals(policy.includes("current_family_id()"), true);
+  }
+});
+
+Deno.test("paypal withdrawals migration is append-only, parent-only, and reads transfers only", async () => {
+  const sql = await Deno.readTextFile(
+    new URL("../../migrations/20261020000000_paypal_withdrawals.sql", import.meta.url),
+  );
+  const code = sql.replace(/--[^\n]*/g, "");
+  assertEquals(code.includes("amount numeric(12,2) not null check (amount > 0)"), true);
+  assertEquals(code.includes("references public.goal_wallets (id, family_id) on delete cascade"), true);
+  assertEquals(code.includes("default public.current_family_id()"), true);
+  assertEquals(code.includes("revoke all on table public.paypal_withdrawals from anon"), true);
+  assertEquals(code.includes("greatest(0, v_captured - v_withdrawn)"), true);
+  assertEquals(code.includes("security definer"), true);
+  assertEquals(/alter\s+table\s+public\.paypal_transfers/.test(code), false);
+  assertEquals(/(update|delete\s+from)\s+public\.paypal_transfers/.test(code), false);
+  const policies = code.match(/create policy[\s\S]*?;/g) ?? [];
+  assertEquals(policies.length, 2);
+  for (const policy of policies) {
+    assertEquals(policy.includes("paypal_withdrawals_parent_"), true);
+    assertEquals(policy.includes("is_parent()"), true);
+    assertEquals(policy.includes("current_family_id()"), true);
+    assertEquals(/for\s+(update|delete)\b/.test(policy), false);
   }
 });

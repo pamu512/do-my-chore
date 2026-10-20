@@ -1,5 +1,10 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { handleFundingDecline, handlePaypalCapture, handlePaypalOrder } from "./wallet_http.ts";
+import {
+  handleFundingDecline,
+  handlePaypalCapture,
+  handlePaypalOrder,
+  handleWalletWithdraw,
+} from "./wallet_http.ts";
 
 const PARENT = "11111111-1111-4111-8111-111111111111";
 const FAMILY = "22222222-2222-4222-8222-222222222222";
@@ -95,6 +100,7 @@ Deno.test("decline does not call paypal or insert a parent save", async () => {
           status: "captured",
         }]));
       }
+      if (url.includes("paypal_withdrawals?wallet_id=eq.")) return Promise.resolve(Response.json([]));
       if (url.includes("parent_save_entries") || url.includes("paypal.com")) {
         return Promise.resolve(new Response("forbidden write", { status: 500 }));
       }
@@ -188,6 +194,7 @@ Deno.test("create order is reused and capture stores both ids with one parent sa
         status: transferStatus === "captured" ? "captured" : "approved",
       }]));
     }
+    if (url.includes("paypal_withdrawals?wallet_id=eq.")) return Promise.resolve(Response.json([]));
     if (url.includes("paypal_transfers?wallet_id=eq.") || url.includes("paypal_transfers?order_id=eq.")) {
       return Promise.resolve(Response.json([{
         id: T_OPEN,
@@ -302,6 +309,7 @@ Deno.test("a configured live paypal host never gets a request", async () => {
           status: "proposed",
         }]));
       }
+      if (url.includes("paypal_withdrawals?wallet_id=eq.")) return Promise.resolve(Response.json([]));
       if (url.includes("paypal_transfers?wallet_id=eq.")) return Promise.resolve(Response.json([]));
       return Promise.resolve(new Response(`unexpected ${init?.method ?? "GET"} ${url}`, { status: 500 }));
     },
@@ -310,4 +318,313 @@ Deno.test("a configured live paypal host never gets a request", async () => {
   const body = await res.json();
   assertEquals(body.error, "paypal is not configured");
   assertEquals(calls.some((url) => url.includes("api-m.paypal.com")), false);
+});
+
+Deno.test("withdraw posts one ledger row, resplits, and never touches paypal_transfers", async () => {
+  const calls: Call[] = [];
+  const logs: string[] = [];
+  const res = await handleWalletWithdraw(req("/wallet-withdraw", {
+    wallet_id: WALLET,
+    amount: "1.00",
+    note: "field trip",
+  }), {
+    env: env(),
+    now: () => new Date("2026-10-17T15:00:00.000Z"),
+    log: (line) => logs.push(line),
+    fetch: (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      const body = typeof init?.body === "string" ? init.body : "";
+      calls.push({ url, method, body });
+      if (url.endsWith("/auth/v1/user")) return Promise.resolve(Response.json({ id: PARENT }));
+      if (url.includes("/profiles?")) return Promise.resolve(Response.json([{ role: "parent", family_id: FAMILY }]));
+      if (url.includes("goal_wallets?")) {
+        return Promise.resolve(Response.json([{
+          id: WALLET,
+          family_id: FAMILY,
+          goal_id: GOAL,
+          goal_amount: "10.00",
+          currency: "USD",
+          cadence: "weekly",
+          goal_date: "2026-11-07",
+          status: "active",
+        }]));
+      }
+      if (url.includes("funding_milestones?wallet_id=eq.")) {
+        return Promise.resolve(Response.json([
+          { id: M_CAP, wallet_id: WALLET, family_id: FAMILY, due_date: "2026-10-12", proposed_amount: "4.00", status: "captured" },
+          { id: M_DEC, wallet_id: WALLET, family_id: FAMILY, due_date: "2026-10-19", proposed_amount: "2.00", status: "proposed" },
+          { id: M_LATER, wallet_id: WALLET, family_id: FAMILY, due_date: "2026-10-26", proposed_amount: "4.00", status: "proposed" },
+        ]));
+      }
+      if (url.includes("paypal_transfers?wallet_id=eq.")) {
+        return Promise.resolve(Response.json([{
+          id: T_CAP,
+          wallet_id: WALLET,
+          milestone_id: M_CAP,
+          family_id: FAMILY,
+          order_id: "ORDER1",
+          capture_id: "CAP1",
+          amount: "4.00",
+          status: "captured",
+        }]));
+      }
+      if (url.includes("paypal_withdrawals?wallet_id=eq.")) return Promise.resolve(Response.json([]));
+      if (url.includes("paypal_transfers") || url.includes("parent_save_entries") || url.includes("paypal.com")) {
+        return Promise.resolve(new Response("forbidden write", { status: 500 }));
+      }
+      if (method === "PATCH" || method === "POST" || method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(new Response(`unexpected ${method} ${url}`, { status: 500 }));
+    },
+  });
+  const text = await res.text();
+  assertEquals(res.status, 200, `${text}\n${JSON.stringify(calls, null, 2)}`);
+  assertEquals(JSON.parse(text), {
+    wallet_id: WALLET,
+    amount: "1.00",
+    wallet_status: "active",
+    funding_percent: 0.3,
+  });
+  const withdrawals = calls.filter((c) => c.method === "POST" && c.url.endsWith("/paypal_withdrawals"));
+  assertEquals(withdrawals.length, 1);
+  assertEquals(JSON.parse(withdrawals[0].body), {
+    wallet_id: WALLET,
+    family_id: FAMILY,
+    amount: "1.00",
+    note: "field trip",
+  });
+  assertEquals(calls.some((c) => c.url.includes("paypal_transfers") && c.method !== "GET"), false);
+  assertEquals(calls.some((c) => c.url.includes("parent_save_entries")), false);
+  assertEquals(calls.some((c) => c.url.includes("paypal.com")), false);
+  const removed = calls.find((c) => c.method === "DELETE");
+  assertEquals(removed?.url.includes(`id=in.(${M_DEC},${M_LATER})`), true);
+  const inserted = calls.find((c) => c.method === "POST" && c.url.endsWith("/funding_milestones"));
+  const rows = inserted ? JSON.parse(inserted.body) as { proposed_amount: string }[] : [];
+  assertEquals(rows.map((r) => r.proposed_amount), ["2.33", "2.33", "2.34"]);
+  assertEquals(rows.reduce((sum, r) => sum + Math.round(Number(r.proposed_amount) * 100), 0), 700);
+  const walletPatch = calls.find((c) => c.method === "PATCH" && c.url.includes("goal_wallets?"));
+  assertEquals(walletPatch?.body, JSON.stringify({ status: "active" }));
+  const blob = `${text}\n${logs.join("\n")}`;
+  assertEquals(blob.includes(SECRET), false);
+  assertEquals(blob.includes(ANON), false);
+  assertEquals(blob.includes("parent-jwt-token"), false);
+});
+
+Deno.test("an over-withdraw is rejected with 409 and zero writes", async () => {
+  const calls: Call[] = [];
+  const res = await handleWalletWithdraw(req("/wallet-withdraw", {
+    wallet_id: WALLET,
+    amount: "3.01",
+    note: "",
+  }), {
+    env: env(),
+    now: () => new Date("2026-10-17T15:00:00.000Z"),
+    fetch: (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      calls.push({ url, method, body: "" });
+      if (url.endsWith("/auth/v1/user")) return Promise.resolve(Response.json({ id: PARENT }));
+      if (url.includes("/profiles?")) return Promise.resolve(Response.json([{ role: "parent", family_id: FAMILY }]));
+      if (url.includes("goal_wallets?")) {
+        return Promise.resolve(Response.json([{
+          id: WALLET,
+          family_id: FAMILY,
+          goal_id: GOAL,
+          goal_amount: "10.00",
+          currency: "USD",
+          cadence: "weekly",
+          goal_date: "2026-11-07",
+          status: "active",
+        }]));
+      }
+      if (url.includes("funding_milestones?wallet_id=eq.")) {
+        return Promise.resolve(Response.json([
+          { id: M_CAP, wallet_id: WALLET, family_id: FAMILY, due_date: "2026-10-12", proposed_amount: "4.00", status: "captured" },
+        ]));
+      }
+      if (url.includes("paypal_transfers?wallet_id=eq.")) {
+        return Promise.resolve(Response.json([{
+          id: T_CAP,
+          wallet_id: WALLET,
+          milestone_id: M_CAP,
+          family_id: FAMILY,
+          order_id: "ORDER1",
+          capture_id: "CAP1",
+          amount: "4.00",
+          status: "captured",
+        }]));
+      }
+      if (url.includes("paypal_withdrawals?wallet_id=eq.")) {
+        return Promise.resolve(Response.json([{
+          id: "12121212-1212-4121-8121-121212121212",
+          wallet_id: WALLET,
+          family_id: FAMILY,
+          amount: "1.00",
+        }]));
+      }
+      if (method === "PATCH" || method === "POST" || method === "DELETE") {
+        return Promise.resolve(new Response("should not write", { status: 500 }));
+      }
+      return Promise.resolve(new Response(`unexpected ${method} ${url}`, { status: 500 }));
+    },
+  });
+  assertEquals(res.status, 409);
+  assertEquals(await res.json(), { error: "withdraw exceeds captured balance" });
+  assertEquals(calls.some((c) => c.method !== "GET"), false);
+});
+
+Deno.test("a kid cannot withdraw", async () => {
+  const calls: Call[] = [];
+  const res = await handleWalletWithdraw(req("/wallet-withdraw", {
+    wallet_id: WALLET,
+    amount: "1.00",
+    note: "",
+  }), {
+    env: env(),
+    now: () => new Date("2026-10-17T15:00:00.000Z"),
+    fetch: (input, init) => {
+      const url = String(input);
+      calls.push({ url, method: init?.method ?? "GET", body: "" });
+      if (url.endsWith("/auth/v1/user")) return Promise.resolve(Response.json({ id: PARENT }));
+      if (url.includes("/profiles?")) return Promise.resolve(Response.json([{ role: "kid", family_id: FAMILY }]));
+      return Promise.resolve(new Response("should not be called", { status: 500 }));
+    },
+  });
+  assertEquals(res.status, 403);
+  assertEquals(calls.some((c) => c.url.includes("paypal_withdrawals") || c.url.includes("paypal_transfers")), false);
+});
+
+Deno.test("a withdraw note over 500 chars is rejected before any fetch", async () => {
+  const calls: Call[] = [];
+  const res = await handleWalletWithdraw(req("/wallet-withdraw", {
+    wallet_id: WALLET,
+    amount: "1.00",
+    note: "x".repeat(501),
+  }), {
+    env: env(),
+    now: () => new Date("2026-10-17T15:00:00.000Z"),
+    fetch: (input, init) => {
+      calls.push({ url: String(input), method: init?.method ?? "GET", body: "" });
+      return Promise.resolve(new Response("should not be called", { status: 500 }));
+    },
+  });
+  assertEquals(res.status, 400);
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("withdraw amount must be a decimal string and is rejected before any fetch", async () => {
+  const samples: unknown[] = [1, 1.1, null, "", "1.001", "-1.00"];
+  for (const amount of samples) {
+    const calls: Call[] = [];
+    const res = await handleWalletWithdraw(req("/wallet-withdraw", {
+      wallet_id: WALLET,
+      amount,
+      note: "",
+    }), {
+      env: env(),
+      now: () => new Date("2026-10-17T15:00:00.000Z"),
+      fetch: (input, init) => {
+        calls.push({ url: String(input), method: init?.method ?? "GET", body: "" });
+        return Promise.resolve(new Response("should not be called", { status: 500 }));
+      },
+    });
+    const body = await res.json();
+    assertEquals(res.status, 400, JSON.stringify({ amount, body }));
+    assertEquals(body, { error: "invalid amount" });
+    assertEquals(calls.length, 0, JSON.stringify(amount));
+  }
+});
+
+Deno.test("a 500 character withdraw note reaches auth", async () => {
+  const calls: Call[] = [];
+  const res = await handleWalletWithdraw(req("/wallet-withdraw", {
+    wallet_id: WALLET,
+    amount: "1.00",
+    note: "n".repeat(500),
+  }), {
+    env: env(),
+    now: () => new Date("2026-10-17T15:00:00.000Z"),
+    fetch: (input, init) => {
+      calls.push({ url: String(input), method: init?.method ?? "GET", body: "" });
+      return Promise.resolve(new Response("no", { status: 401 }));
+    },
+  });
+  assertEquals(res.status, 401);
+  assertEquals(calls.length > 0, true);
+});
+
+Deno.test("withdraw after the goal date returns short and does not write transfers", async () => {
+  const calls: Call[] = [];
+  const res = await handleWalletWithdraw(req("/wallet-withdraw", {
+    wallet_id: WALLET,
+    amount: "1.00",
+    note: "",
+  }), {
+    env: env(),
+    now: () => new Date("2026-10-22T15:00:00.000Z"),
+    fetch: (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      const body = typeof init?.body === "string" ? init.body : "";
+      calls.push({ url, method, body });
+      if (url.endsWith("/auth/v1/user")) return Promise.resolve(Response.json({ id: PARENT }));
+      if (url.includes("/profiles?")) return Promise.resolve(Response.json([{ role: "parent", family_id: FAMILY }]));
+      if (url.includes("goal_wallets?")) {
+        return Promise.resolve(Response.json([{
+          id: WALLET,
+          family_id: FAMILY,
+          goal_id: GOAL,
+          goal_amount: "4.00",
+          currency: "USD",
+          cadence: "weekly",
+          goal_date: "2026-10-21",
+          status: "funded",
+        }]));
+      }
+      if (url.includes("funding_milestones?wallet_id=eq.")) {
+        return Promise.resolve(Response.json([{
+          id: M_CAP,
+          wallet_id: WALLET,
+          family_id: FAMILY,
+          due_date: "2026-10-12",
+          proposed_amount: "4.00",
+          status: "captured",
+        }]));
+      }
+      if (url.includes("paypal_transfers?wallet_id=eq.")) {
+        return Promise.resolve(Response.json([{
+          id: T_CAP,
+          wallet_id: WALLET,
+          milestone_id: M_CAP,
+          family_id: FAMILY,
+          order_id: "ORDER1",
+          capture_id: "CAP1",
+          amount: "4.00",
+          status: "captured",
+        }]));
+      }
+      if (url.includes("paypal_withdrawals?wallet_id=eq.")) return Promise.resolve(Response.json([]));
+      if (url.includes("paypal_transfers") || url.includes("parent_save_entries") || url.includes("paypal.com")) {
+        return Promise.resolve(new Response("forbidden write", { status: 500 }));
+      }
+      if (method === "PATCH" || method === "POST" || method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(new Response(`unexpected ${method} ${url}`, { status: 500 }));
+    },
+  });
+  const text = await res.text();
+  assertEquals(res.status, 200, `${text}\n${JSON.stringify(calls, null, 2)}`);
+  assertEquals(JSON.parse(text), {
+    wallet_id: WALLET,
+    amount: "1.00",
+    wallet_status: "short",
+    funding_percent: 0.75,
+  });
+  assertEquals(calls.some((c) => c.url.includes("paypal_transfers") && c.method !== "GET"), false);
+  assertEquals(calls.some((c) => c.method === "POST" && c.url.endsWith("/paypal_withdrawals")), true);
+  const walletPatch = calls.find((c) => c.method === "PATCH" && c.url.includes("goal_wallets?"));
+  assertEquals(walletPatch?.body, JSON.stringify({ status: "short" }));
 });
