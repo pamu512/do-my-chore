@@ -2,6 +2,7 @@ import 'chore_progress_math.dart';
 import 'chore_service.dart';
 import 'encouragement.dart';
 import 'goal_service.dart';
+import 'goal_wallet.dart';
 import 'ledger_math.dart';
 
 /// One Goal Album insert implied by an approval: the photo, the goal it
@@ -199,6 +200,9 @@ class GoalProgressView {
   final double planWeightSum; // sum of chore weights (may exceed 100)
   final double weeklyParentSave; // accepted plan, or computed fallback
 
+  /// Ratio from `goal_funding_percent`. Null when that call did not return a number.
+  final double? fundingPercent;
+
   final int weeksElapsed; // whole weeks since created_at (0 at creation)
 
   GoalProgressView({
@@ -213,6 +217,7 @@ class GoalProgressView {
     required this.parentSaved,
     required this.planWeightSum,
     required this.weeklyParentSave,
+    this.fundingPercent,
     this.weeksElapsed = 0,
   });
 
@@ -324,6 +329,16 @@ extension GoalServiceQueries on GoalService {
           : suggestedSavePerWeek(
               cost: (g['target_amount'] as num).toDouble(), weeksN: n);
 
+      double? fundingPercent;
+      try {
+        fundingPercent = parseFundingRatio(await client.rpc(
+          'goal_funding_percent',
+          params: {'p_goal_id': goalId},
+        ));
+      } catch (_) {
+        fundingPercent = null;
+      }
+
       views.add(GoalProgressView(
         weeksElapsed: elapsed,
         id: goalId,
@@ -337,6 +352,7 @@ extension GoalServiceQueries on GoalService {
         parentSaved: saved,
         planWeightSum: weightSum,
         weeklyParentSave: weeklySave,
+        fundingPercent: fundingPercent,
       ));
     }
     return views;

@@ -5,8 +5,10 @@ import '../../services/album_service.dart';
 import '../../services/chore_service.dart';
 import '../../services/encouragement.dart';
 import '../../services/goal_service.dart';
+import '../../services/goal_wallet.dart';
 import '../../services/queries.dart';
 import 'album_screen.dart';
+import 'goal_wallet_screen.dart';
 import 'approvals_screen.dart';
 import 'new_goal_screen.dart';
 
@@ -385,6 +387,30 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                 ),
               ],
             ),
+            if (widget.goalService != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: Key('open-goal-wallet-${g.id}'),
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => GoalWalletScreen(
+                          goalId: g.id,
+                          goalTitle: g.title,
+                          store: SupabaseGoalWalletStore(
+                            widget.goalService!.parentClient,
+                          ),
+                        ),
+                      ),
+                    );
+                    if (mounted) _refresh();
+                  },
+                  icon: const Icon(Icons.account_balance_wallet_outlined, size: 17),
+                  label: const Text('Goal wallet'),
+                ),
+              ),
             if (g.parentBehind) ...[
               const SizedBox(height: 4),
               _catchUpCard(g),
