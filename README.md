@@ -10,9 +10,9 @@ The kid earns the goal through weighted habit chores - a percent bar, never doll
 
 Goal Wallet is the parent's PayPal sandbox funding side (Orders v2 create/capture). Parent **Approve** marks a period done but does **not** move money. **Skip** leaves captured funding and the goal date. **Take-out** is ledger-only — PayPal is not charged again. Kid UI stays percent-only.
 
-Checkout `feat/goal-wallet` (or [this PR](https://github.com/pamu512/do-my-chore/pull/16)) and follow the [Goal Wallet sandbox runbook](docs/paypal-goal-wallet-sandbox-runbook.md). Demo parent is `parent@demo` / `demo1234`. `kid@demo` is rejected on PayPal edges with 403 (see the runbook).
+Clone the repo (`main`) and follow the [Goal Wallet sandbox runbook](docs/paypal-goal-wallet-sandbox-runbook.md). Demo parent is `parent@demo` / `demo1234`. `kid@demo` is rejected on PayPal edges with 403 (see the runbook).
 
-Sandbox only. No App Store, Play, or hosted runnable app yet. Goal Wallet is on this branch, not on `main` until the PR merges. The Basics path still settles offline.
+Sandbox only. No App Store, Play, or hosted runnable app yet. The Basics path still settles offline.
 
 Devpost draft: [`docs/devpost-goal-wallet.md`](docs/devpost-goal-wallet.md).
 
@@ -100,7 +100,7 @@ Optional function secrets override those defaults: `NEBIUS_BASE_URL` (default `h
 
 ## Honesty notices
 
-- **Money:** the app plans and tracks; it is not a bank, card, or payment rail. On the Basics path, parents settle real money **offline**. Goal Wallet (this branch) uses PayPal sandbox capture into the business pot. Kid screens show percent only.
+- **Money:** the app plans and tracks; it is not a bank, card, or payment rail. On the Basics path, parents settle real money **offline**. Goal Wallet uses PayPal sandbox capture into the business pot. Kid screens show percent only.
 - **Photos & kids:** all photos and kid accounts in this demo are **test data only**. Check-in photos live in the family's scoped storage. This POC does not implement COPPA-style verifiable parental consent. That is a hard requirement before any real family use.
 - **AI:** photo assist only *suggests*; **the parent is always final**. No verification-accuracy claims anywhere.
 
@@ -111,7 +111,7 @@ Optional function secrets override those defaults: `NEBIUS_BASE_URL` (default `h
 - [`docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md`](docs/superpowers/specs/2026-09-29-encouragement-layer-v3.md) - V3 encouragement layer (locked)
 - [`docs/demo-video-script.md`](docs/demo-video-script.md) - 1–3 min demo shot list
 - [`docs/devpost-draft.md`](docs/devpost-draft.md) - Build With AI: Basics submission draft
-- [`docs/paypal-goal-wallet-sandbox-runbook.md`](docs/paypal-goal-wallet-sandbox-runbook.md) - Goal Wallet sandbox judge path (this branch)
+- [`docs/paypal-goal-wallet-sandbox-runbook.md`](docs/paypal-goal-wallet-sandbox-runbook.md) - Goal Wallet sandbox judge path
 - [`docs/devpost-goal-wallet.md`](docs/devpost-goal-wallet.md) - PayPal AI Hackathon draft
 
 ## Layout

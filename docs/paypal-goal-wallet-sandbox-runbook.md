@@ -1,6 +1,6 @@
 # Goal Wallet sandbox runbook
 
-Judge path for the PayPal AI Hackathon build on `feat/goal-wallet`. Sandbox only. This file does not Final Submit.
+Judge path for the PayPal AI Hackathon build on `main` (default branch). Sandbox only. This file does not Final Submit.
 
 The parent app records a skip and a mid-goal take-out. Create and capture run on the `paypal-order` and `paypal-capture` edges. The app does not call those two functions.
 
