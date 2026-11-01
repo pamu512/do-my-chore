@@ -16,6 +16,10 @@ Sandbox only. No App Store, Play, or hosted runnable app yet. Goal Wallet is on 
 
 Devpost draft: [`docs/devpost-goal-wallet.md`](docs/devpost-goal-wallet.md).
 
+Demo video (1:09): https://youtu.be/Ie_Vj2_QrQY
+
+[![Parent home screen in the Do My Chore app](docs/assets/demo-cover-parent-home.png)](https://youtu.be/Ie_Vj2_QrQY)
+
 ## The demo loop
 
 1. Parent creates a goal - family trip or kid item, real cost, target date (Disneyland, $3,500, ~14 weeks) → **Suggest plan** drafts the weekly parent save plus weighted chores summing to **at least 100%**, with a plain-language *why* → edit anything → accept

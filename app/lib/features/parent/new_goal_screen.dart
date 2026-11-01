@@ -26,6 +26,10 @@ DateTime _defaultTargetDate() =>
 
 /// Parent types a goal (amount optional), gets a combined estimate + chore
 /// plan for the primary kid, can override the dollars, then Accept locks.
+///
+/// Target date is picked with the native calendar (tomorrow to +5 years),
+/// not free-typed. The picked calendar day flows into suggest, create, and
+/// weeksUntil as UTC midnight, matching `DateTime.tryParse('yyyy-MM-dd')`.
 class NewGoalScreen extends StatefulWidget {
   const NewGoalScreen({
     super.key,

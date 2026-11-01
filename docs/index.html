@@ -97,6 +97,39 @@ header{position:sticky;top:0;z-index:20;background:rgba(251,250,248,.92);backdro
 .p-done .h{font-family:Fraunces,Georgia,serif;font-size:14px;font-weight:700}
 .p-done .chip{display:inline-block;background:var(--surface);border:1px solid var(--line);border-radius:999px;font-size:10px;color:var(--muted);padding:2px 8px;margin-top:5px}
 
+
+/* ---------- hero demo poster ---------- */
+.demo-poster{margin:0 0 8px}
+.demo-poster .inner{max-width:1120px;margin:0 auto;padding:0 28px 28px}
+.demo-poster a.card{display:grid;grid-template-columns:1.15fr .85fr;gap:0;align-items:stretch;background:var(--surface);border:1px solid var(--line-strong);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;box-shadow:0 18px 40px -28px rgba(31,38,33,.35)}
+.demo-poster a.card:hover{border-color:var(--pine)}
+.demo-poster .shot{position:relative;background:var(--cream);min-height:220px}
+.demo-poster .shot img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.demo-poster .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(20,53,40,.08),rgba(20,53,40,.38))}
+.demo-poster .play span{display:inline-flex;align-items:center;gap:10px;background:var(--pine);color:#fff;font-weight:700;font-size:15px;border-radius:999px;padding:12px 18px;box-shadow:0 10px 24px -12px rgba(20,53,40,.7)}
+.demo-poster .play svg{flex:none}
+.demo-poster .copy{padding:28px 28px 26px;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.demo-poster .copy .micro{color:var(--pine)}
+.demo-poster .copy h2{font-family:Fraunces,Georgia,serif;font-size:clamp(22px,2.6vw,28px);line-height:1.15;letter-spacing:-.02em}
+.demo-poster .copy p{font-size:15px;color:var(--muted);line-height:1.55;max-width:32em}
+.demo-poster .copy .meta{font-size:13px;color:var(--faint)}
+@media(max-width:760px){
+  .demo-poster a.card{grid-template-columns:1fr}
+  .demo-poster .shot{min-height:200px}
+}
+
+
+/* ---------- screens plate ---------- */
+.screens{padding:64px 0 72px;background:var(--cream)}
+.screens .sec-head{margin-bottom:28px}
+.screens .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.screens figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.screens figure img{width:100%;aspect-ratio:4/5;object-fit:cover;object-position:top center;display:block;background:var(--paper)}
+.screens figcaption{padding:12px 14px 14px;font-size:13px;color:var(--ink2);line-height:1.45}
+.screens figcaption strong{display:block;font-size:14px;color:var(--ink);margin-bottom:2px}
+@media(max-width:900px){.screens .grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.screens .grid{grid-template-columns:1fr}}
+
 /* ---------- strip under hero ---------- */
 .strip{background:var(--paper);border-block:1px solid var(--line)}
 .strip .inner{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;padding:18px 28px}
@@ -208,6 +241,7 @@ footer{padding:44px 0 60px}
     <nav class="links" aria-label="Main">
       <a href="#paths">Two paths</a>
       <a href="#how">How it works</a>
+      <a href="#screens">Screens</a>
       <a href="#ai">The AI</a>
       <a href="#honesty">Honesty</a>
       <a class="cta" href="https://github.com/pamu512/do-my-chore" target="_blank" rel="noopener">View the repo</a>
@@ -220,16 +254,17 @@ footer{padding:44px 0 60px}
 <!-- ============ HERO ============ -->
 <div class="wrap hero">
   <div>
-    <span class="eyebrow">Build With AI: Basics submission</span>
+    <span class="eyebrow">Family goals, kid habits</span>
     <h1>Kid habits earn <em>100%</em>.<br>Parent plans the save.</h1>
-    <p class="sub">The kid earns the goal through weighted habit chores - a percent bar, never dollars. The parent plans the real cost with an AI-suggested save schedule. Two accountabilities, one goal.</p>
+    <p class="sub">Kids earn the family goal with habits on a percent bar. Parents plan the real dollars. One shared finish line.</p>
     <div class="subactions">
-      <a class="btn primary" href="https://github.com/pamu512/do-my-chore" target="_blank" rel="noopener">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .31.21.68.8.56A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
-        View the repo</a>
+      <a class="btn primary" href="https://youtu.be/Ie_Vj2_QrQY" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        Watch the demo</a>
+      <a class="btn ghost" href="https://github.com/pamu512/do-my-chore" target="_blank" rel="noopener">View the repo</a>
       <a class="btn ghost" href="#how">See how it works</a>
     </div>
-    <p class="proof">Flutter + Supabase POC · kid screens are percent-only · real money settles offline · demo runs with zero API keys</p>
+    <p class="proof">Try it: <a href="https://pamu512.github.io/do-my-chore/" style="color:var(--pine)">project site</a> · repo clone · kid screens are percent-only · demo runs with zero API keys</p>
   </div>
 
   <div class="phone-wrap">
@@ -272,6 +307,37 @@ footer{padding:44px 0 60px}
     </div>
   </div>
 </div>
+
+
+<!-- ============ HERO DEMO ============ -->
+<section class="demo-poster" aria-label="Product demo video">
+  <div class="inner">
+    <a class="card" href="https://youtu.be/Ie_Vj2_QrQY" target="_blank" rel="noopener" aria-label="Watch the Do My Chore demo video on YouTube">
+      <div class="shot">
+        <img src="assets/demo-cover-parent-home.png" alt="Parent home in Do My Chore showing the family goal and save plan">
+        <div class="play" aria-hidden="true"><span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Watch the demo
+        </span></div>
+      </div>
+      <div class="copy">
+        <span class="micro">1:09 demo</span>
+        <h2>See the full loop in one sitting</h2>
+        <p>Parent suggests a plan, kid checks in for percent only, parent approves. Real money stays offline.</p>
+        <p class="meta">Follow-up: a tighter cut under 60s for gallery autoplay feel.</p>
+      </div>
+    </a>
+  </div>
+</section>
+
+
+<!-- ============ MONEY CLEAR ============ -->
+<section class="wrap" style="padding:8px 0 36px" aria-label="How money works">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 24px;max-width:820px">
+    <span class="micro" style="color:var(--pine)">How money works</span>
+    <p style="margin-top:8px;font-size:16px;line-height:1.55;color:var(--ink2)">The parent is the dollar planner: goal cost, weekly save, and catch-up if the plan slips. The kid never sees dollars, only a percent bar and chores. Approvals move the bar. Real money settles offline in the family wallet.</p>
+  </div>
+</section>
 
 <!-- strip -->
 <div class="strip">
@@ -369,6 +435,44 @@ footer{padding:44px 0 60px}
         <p>For chores a parent can verify by looking, it suggests approve or send back. Trust-based chores - reading time - never ask for photos.</p>
         <div class="fence"><b>The fence:</b> the parent is always final. The app says <i>looks complete - you make the call</i>, and means it. No verification claims.</div>
       </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============ SCREENS ============ -->
+<section class="screens" id="screens">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="micro">Product screens</span>
+      <h2 class="serif" style="font-size:clamp(28px,3.5vw,36px);margin-top:8px">The loop judges can feel</h2>
+      <p style="margin-top:10px;color:var(--muted);max-width:40em">Icon, parent plan, kid percent bar, and the chore textures behind the demo. Fresh gallery captures without DEBUG ribbons are listed for Devpost in the PR notes.</p>
+    </div>
+    <div class="grid">
+      <figure>
+        <img src="assets/icon.png" alt="Do My Chore app icon on cream">
+        <figcaption><strong>App icon</strong> Cream paper field, pine mark, gold accent.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/demo-cover-parent-home.png" alt="Parent home with family goal and weekly save">
+        <figcaption><strong>Parent home</strong> Dollar planner for the shared goal.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/castle.jpg" alt="Disneyland style goal imagery">
+        <figcaption><strong>The goal</strong> What the family is building toward.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/bed.jpg" alt="Make your bed chore imagery">
+        <figcaption><strong>Habit chore</strong> Weighted daily work that moves the kid percent bar.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/dishes.jpg" alt="Dishes chore imagery">
+        <figcaption><strong>Core loop</strong> Check in, parent approves, percent moves.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/laundry.jpg" alt="Laundry chore imagery">
+        <figcaption><strong>Multi-chore plate</strong> Several habits, one finish line.</figcaption>
+      </figure>
     </div>
   </div>
 </section>
