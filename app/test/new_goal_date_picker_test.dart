@@ -125,6 +125,24 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.textContaining('Could not build plan'), findsNothing);
+
+    // Injected suggest finishes in the 50ms pump above (SAVE ESTIMATE / THE
+    // PLAN are already in the tree). Accept plan sits below ListView's cache
+    // extent on this viewport, so it is not built until we scroll to it.
+    final listScrollable = find.descendant(
+      of: find.byType(ListView),
+      matching: find.byType(Scrollable),
+    );
+    if (listScrollable.evaluate().isNotEmpty &&
+        find.text('Accept plan').evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        find.text('Accept plan'),
+        300,
+        scrollable: listScrollable.first,
+        maxScrolls: 40,
+      );
+    }
+
     expect(find.text('Accept plan'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
