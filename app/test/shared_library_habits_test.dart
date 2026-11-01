@@ -40,13 +40,13 @@ void main() {
         title: 'Disneyland',
         targetAmount: 3500,
         weeks: 14,
-        kidAge: 9,
+        kidAge: 8,
       );
       final b = buildDeterministicPlan(
         title: 'Ice cream',
         targetAmount: 8,
         weeks: 4,
-        kidAge: 9,
+        kidAge: 8,
       );
       expect(a.chores.map((c) => c.libraryChoreId).toList(), [
         'make-your-bed',

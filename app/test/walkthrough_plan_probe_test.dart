@@ -8,7 +8,7 @@ void main() {
       title: 'Camping trip',
       targetAmount: 300,
       weeks: 14,
-      kidAge: 9,
+      kidAge: 8,
     );
     // ignore: avoid_print
     print('chores=${plan.chores.length} '

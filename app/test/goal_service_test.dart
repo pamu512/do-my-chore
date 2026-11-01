@@ -8,7 +8,7 @@ void main() {
         title: 'Disneyland',
         targetAmount: 3500,
         weeks: 14,
-        kidAge: 9,
+        kidAge: 8,
       );
       expect(plan.chores.length, greaterThanOrEqualTo(4));
       expect(plan.why.isNotEmpty, isTrue);
@@ -20,7 +20,7 @@ void main() {
         title: 'Disneyland',
         targetAmount: 3500,
         weeks: 14,
-        kidAge: 9,
+        kidAge: 8,
       );
       expect(plan.weeklyParentSave, 250);
     });
@@ -30,7 +30,7 @@ void main() {
         title: 'Disneyland',
         targetAmount: 3500,
         weeks: 14,
-        kidAge: 9,
+        kidAge: 8,
       );
       expect(plan.weightSum, greaterThanOrEqualTo(100));
       for (final c in plan.chores) {
@@ -44,7 +44,7 @@ void main() {
         title: 'Disneyland',
         targetAmount: 3500,
         weeks: 14,
-        kidAge: 9,
+        kidAge: 8,
       );
       for (final c in plan.chores) {
         if (c.requiresPhoto) {
@@ -59,7 +59,7 @@ void main() {
         title: 'Disneyland',
         targetAmount: 3500,
         weeks: 14,
-        kidAge: 9,
+        kidAge: 8,
       );
       for (final c in plan.chores) {
         expect(c.isMakeup, isFalse);

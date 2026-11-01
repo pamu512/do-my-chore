@@ -57,17 +57,26 @@ double parentSaveProgress({required double saved, required double cost});  // ca
 
 ## AI surfaces
 
+Shared helper: `supabase/functions/_shared/llm.ts`. Selection order is `NEBIUS_API_KEY` (Nebius Token Factory) → `OPENAI_API_KEY` (gpt-4o-mini) → deterministic / abstain. Text calls use Nemotron `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` on Token Factory. Photo checks use Nebius Token Factory with `Qwen/Qwen3.8-27B` (set via `NEBIUS_VISION_MODEL`; Token Factory has no Nemotron vision model on this account). Nebius is never required.
+
 ### POST /functions/v1/suggest-plan
 
 Input `{ title, targetAmount, targetDate, kidAge }` -> `{ weekly_parent_save, chores: [{library_chore_id, title, cadence, weight_pct, requires_photo, is_makeup}], why }`.
 - Chores MUST come from `chore_library` (stable catalog ids). Same habit → same id. Unknown id falls back to exact title match, else deterministic.
-- With `OPENAI_API_KEY`: LLM generates the plan from the age-filtered library; the response is validated (weights >= 100, else fallback to deterministic).
-- Without a key: **deterministic builder** (worked-example weights summing to exactly 100, save = cost / weeks). Same JSON shape either way.
+- With a key (`NEBIUS_API_KEY` or `OPENAI_API_KEY`): LLM generates the plan from the age-filtered library; the response is validated (weights >= 100, else fallback to deterministic).
+- Without a key: **deterministic builder** (worked-example weights summing to exactly 100, save = cost / weeks). Same JSON shape either way. Flutter still uses the local builder when the function is unreachable.
 
 ### POST /functions/v1/photo-assist
 
 Input `{ choreTitle, image }` -> `{ suggest: approve|reject|abstain, reason }`.
 - Vision prompt only for visually verifiable chores; abstains otherwise; **parent is always final**.
+- Photo checks run on Nebius Token Factory with `Qwen/Qwen3.8-27B` when `NEBIUS_API_KEY` is set. Override with `NEBIUS_VISION_MODEL`. Token Factory has no Nemotron vision model on this account.
+
+### POST /functions/v1/goal-cost-orchestrate
+
+Input `{ title, targetAmount, targetDate, goalMode }` -> `{ estimate: {low, likely, high, rationale, provider}, weekly_save_suggestion, deals, deal_search }`.
+- New function (do not overload suggest-plan). Parent-only, after Accept. Optional `TAVILY_API_KEY` for deals under the likely budget; without it, estimate still returns and `deal_search` is `skipped`.
+- Without an LLM key: deterministic 80/100/125 bands around the parent's entered cost.
 
 ## Auth & demo UX
 
@@ -77,7 +86,7 @@ Input `{ choreTitle, image }` -> `{ suggest: approve|reject|abstain, reason }`.
 ## Configuration
 
 - App: `--dart-define=SUPABASE_URL=... SUPABASE_ANON_KEY=...` (and optional `DEMO_WALK=true` for the simulator walkthrough camera stub)
-- Functions secrets: `OPENAI_API_KEY` optional - absence degrades to fallbacks, never crashes.
+- Functions secrets (all optional): `NEBIUS_API_KEY`, `OPENAI_API_KEY`, `TAVILY_API_KEY`, plus optional `NEBIUS_BASE_URL` / `NEBIUS_VISION_BASE_URL` / `NEBIUS_TEXT_MODEL` / `NEBIUS_VISION_MODEL` overrides. Vision calls use `NEBIUS_VISION_BASE_URL` when set, else `NEBIUS_BASE_URL`. Absence degrades to fallbacks, never crashes. See [`docs/nebius-token-factory.md`](docs/nebius-token-factory.md).
 - Local dev: Supabase CLI via Docker (`supabase start`); iOS simulator reaches `127.0.0.1`.
 
 ## Testing
@@ -87,5 +96,6 @@ Input `{ choreTitle, image }` -> `{ suggest: approve|reject|abstain, reason }`.
 - `plan_validation_test.dart` - weights >= 100, cadence validity, no makeup in plans, photo rule
 - `overshoot_test.dart` - approval credit previews + submission state machine
 - `goal_service_test.dart` - deterministic fallback shape, weights sum, weekly save
+- `cost_estimate_test.dart` - deterministic 80/100/125 bands, deal budget filter, orchestrate parse, lock payload
 - `widget_role_switch_test.dart` / `widget_test.dart` - shell renders both roles
 - RLS check - cross-family read denied for kid session

@@ -5,6 +5,7 @@ import '../../services/chore_progress_math.dart';
 import '../../services/chore_service.dart';
 import '../../services/encouragement.dart';
 import '../../services/goal_service.dart';
+import '../../services/goal_wallet.dart';
 import '../../services/queries.dart';
 import 'encouragement_widgets.dart';
 import 'mark_done_screen.dart';
@@ -130,6 +131,7 @@ class KidTodayBody extends StatelessWidget {
             goalTitle: g.title,
             handOff: earnedHandOff(goalMode: g.goalMode),
           ),
+          if (g.fundingPercent != null) _fundedLine(g),
         ],
       );
     }
@@ -220,6 +222,34 @@ class KidTodayBody extends StatelessWidget {
       weeksN: g.weeksN,
       weeksElapsed: g.weeksElapsed,
       openCreditsDesc: credits,
+    );
+  }
+
+  /// Server ratio only. The label is a percent, never a dollar amount.
+  Widget _fundedLine(GoalProgressView g) {
+    final ratio = g.fundingPercent;
+    if (ratio == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${formatFundingPercent(ratio)} funded',
+            key: Key('kid-funded-percent-${g.id}'),
+            style: Dmc.displayStyle(
+              size: 22,
+              weight: FontWeight.w700,
+              color: Dmc.marigoldDeep,
+            ),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'Saved toward the goal',
+            style: TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
+          ),
+        ],
+      ),
     );
   }
 
@@ -323,6 +353,7 @@ class KidTodayBody extends StatelessWidget {
                   style:
                       const TextStyle(fontSize: 13, height: 1.45, color: Dmc.muted),
                 ),
+                if (g.fundingPercent != null) _fundedLine(g),
               ],
             ),
           ),

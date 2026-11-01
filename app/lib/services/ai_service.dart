@@ -172,6 +172,7 @@ AiPlanSuggestion buildDeterministicPlan({
 
   final why = '"$title" costs about \$$targetAmount. Setting aside '
       '\$$weeklySave a week for $w weeks covers the full cost before the date. '
+      'That weekly figure is parent funding for the real cost, not kid pocket money. '
       'Meanwhile $who earns the goal by keeping the habits going: the weight '
       'list adds up to $weightSum percent, so a steady streak lands exactly '
       'at 100 percent by the deadline.';

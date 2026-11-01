@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:do_my_chore/core/demo_auth.dart';
 import 'package:do_my_chore/features/parent/new_goal_screen.dart';
+import 'package:do_my_chore/services/edge_ai_client.dart';
 import 'package:do_my_chore/services/goal_service.dart';
 
 /// Basics New Goal: target date is native showDatePicker, not free-typed yyyy-MM-dd.
@@ -35,8 +36,8 @@ void main() {
         ),
         findsNothing,
       );
-      // Goal name, total cost, kid age.
-      expect(find.byType(TextField), findsNWidgets(3));
+      // Goal name + optional total cost. Kid age is kPrimaryKidAge, not a field.
+      expect(find.byType(TextField), findsNWidgets(2));
 
       final shown = _mediumDate(tester, anchor);
       expect(find.text(shown), findsOneWidget);
@@ -71,7 +72,24 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en', 'US'),
-        home: NewGoalScreen(goalService: service),
+        home: NewGoalScreen(
+          goalService: service,
+          suggestPlan: ({
+            required String title,
+            double? targetAmount,
+            required DateTime targetDate,
+            required int kidAge,
+            required String goalMode,
+          }) async {
+            return localGoalFirstSuggest(
+              title: title,
+              targetAmount: targetAmount,
+              weeks: 14,
+              kidAge: kidAge,
+              goalMode: goalMode,
+            );
+          },
+        ),
       ),
     );
     await tester.pump();
