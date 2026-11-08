@@ -4,7 +4,7 @@ Draft only. Do not Final Submit.
 
 This is the Goal Wallet draft. `docs/devpost-draft.md` is the separate Build With AI: Basics draft. Leave that file as it is.
 
-Hackathon: [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). Repo: https://github.com/pamu512/do-my-chore (`feat/goal-wallet`). Judge steps: `docs/paypal-goal-wallet-sandbox-runbook.md`.
+Hackathon: [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). Repo: https://github.com/pamu512/do-my-chore (`main`). Judge steps: https://github.com/pamu512/do-my-chore/blob/main/docs/paypal-goal-wallet-sandbox-runbook.md. Project site: https://pamu512.github.io/do-my-chore/#goal-wallet
 
 ## Project title
 
@@ -57,7 +57,7 @@ Parents can trust the pot when a skipped week and a take-out follow one rule: on
 
 ## What's next
 
-Final Submit waits until Anoop asks. Live charges, Holds, Payouts, refunds, and auto-pay stay out.
+Live charges, Holds, Payouts, refunds, and auto-pay stay out. Do not Final Submit.
 
 ## Built with
 
@@ -75,4 +75,4 @@ flutter, dart, supabase (postgres, rls, edge-functions), deno, paypal orders v2 
 
 ## Try it
 
-Follow `docs/paypal-goal-wallet-sandbox-runbook.md` on `feat/goal-wallet`: one sandbox capture, one skip, one ledger take-out, then the Deno fixtures. Credentials stay outside the repo.
+Clone `main` and follow https://github.com/pamu512/do-my-chore/blob/main/docs/paypal-goal-wallet-sandbox-runbook.md: one sandbox capture, one skip, one ledger take-out, then the Deno fixtures. Credentials stay outside the repo. Demo parent is `parent@demo` / `demo1234`. `kid@demo` is rejected on PayPal edges with 403. Project site: https://pamu512.github.io/do-my-chore/#goal-wallet
