@@ -14,13 +14,15 @@ Clone the repo (`main`) and follow the [Goal Wallet sandbox runbook](docs/paypal
 
 Sandbox only. No App Store, Play, or hosted runnable app yet. The Basics path still settles offline.
 
-Devpost draft: [`docs/devpost-goal-wallet.md`](docs/devpost-goal-wallet.md).
+Devpost draft: [`docs/devpost-goal-wallet.md`](docs/devpost-goal-wallet.md). Project site: https://pamu512.github.io/do-my-chore/#goal-wallet
 
-Demo video (1:09): https://youtu.be/Ie_Vj2_QrQY
+Demo video: https://youtu.be/f0RxJwxC7E0
 
-[![Parent home screen in the Do My Chore app](docs/assets/demo-cover-parent-home.png)](https://youtu.be/Ie_Vj2_QrQY)
+[![Parent home screen in the Do My Chore app](docs/assets/demo-cover-parent-home.png)](https://youtu.be/f0RxJwxC7E0)
 
 ## The demo loop
+
+Basics demo (1:09): https://youtu.be/Ie_Vj2_QrQY
 
 1. Parent creates a goal - family trip or kid item, real cost, target date (Disneyland, $3,500, ~14 weeks) → **Suggest plan** drafts the weekly parent save plus weighted chores summing to **at least 100%**, with a plain-language *why* → edit anything → accept
 2. In-app **role switch** to Kid → Today list is **percent-only** (no dollars on any kid screen) → mark done, with photo check-in where looking works
